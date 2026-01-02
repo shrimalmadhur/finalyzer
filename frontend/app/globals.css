@@ -1,0 +1,410 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   EDITORIAL FINANCE - Global Styles
+   ============================================ */
+
+@layer base {
+  :root {
+    --ink: #0a0f0f;
+    --ink-light: #1a2020;
+    --ink-lighter: #2a3535;
+    --jade: #1acd8a;
+    --jade-dim: rgba(26, 205, 138, 0.1);
+    --cream: #faf8f5;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Refined focus states */
+  :focus-visible {
+    outline: 2px solid var(--jade);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  /* Typography refinements */
+  h1, h2, h3, h4, h5, h6 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+}
+
+/* ============================================
+   GRAIN TEXTURE OVERLAY
+   ============================================ */
+
+.grain-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+}
+
+/* ============================================
+   CUSTOM SCROLLBAR
+   ============================================ */
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(26, 205, 138, 0.2);
+  border-radius: 10px;
+  border: 3px solid var(--ink);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(26, 205, 138, 0.35);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(26, 205, 138, 0.2) transparent;
+}
+
+/* ============================================
+   COMPONENT UTILITIES
+   ============================================ */
+
+@layer components {
+  /* Glass card effect */
+  .glass-card {
+    @apply relative overflow-hidden;
+    background: linear-gradient(
+      135deg,
+      rgba(26, 32, 32, 0.8) 0%,
+      rgba(10, 15, 15, 0.9) 100%
+    );
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(26, 205, 138, 0.08);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.03) inset,
+      0 0 0 1px rgba(0, 0, 0, 0.2),
+      0 20px 50px -20px rgba(0, 0, 0, 0.5);
+  }
+
+  .glass-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      135deg,
+      rgba(26, 205, 138, 0.02) 0%,
+      transparent 50%
+    );
+    pointer-events: none;
+  }
+
+  /* Elevated card */
+  .elevated-card {
+    @apply relative;
+    background: var(--ink-light);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.02) inset,
+      0 10px 40px -10px rgba(0, 0, 0, 0.5);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .elevated-card:hover {
+    border-color: rgba(26, 205, 138, 0.15);
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.03) inset,
+      0 20px 60px -15px rgba(0, 0, 0, 0.6),
+      0 0 0 1px rgba(26, 205, 138, 0.1);
+    transform: translateY(-2px);
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    background: linear-gradient(
+      135deg,
+      #81f4c8 0%,
+      #1acd8a 40%,
+      #0fa96f 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* Shimmer effect */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(26, 205, 138, 0.08) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2s linear infinite;
+  }
+
+  /* Glow border */
+  .glow-border {
+    position: relative;
+  }
+
+  .glow-border::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    background: linear-gradient(
+      135deg,
+      rgba(26, 205, 138, 0.3) 0%,
+      transparent 50%,
+      rgba(26, 205, 138, 0.1) 100%
+    );
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  .glow-border:hover::after {
+    opacity: 1;
+  }
+
+  /* Button base */
+  .btn-primary {
+    @apply relative px-6 py-3 font-medium rounded-xl overflow-hidden;
+    background: linear-gradient(135deg, #1acd8a 0%, #0fa96f 100%);
+    color: var(--ink);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow:
+      0 2px 8px rgba(26, 205, 138, 0.3),
+      0 0 0 1px rgba(26, 205, 138, 0.1) inset;
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow:
+      0 4px 20px rgba(26, 205, 138, 0.4),
+      0 0 0 1px rgba(129, 244, 200, 0.2) inset;
+  }
+
+  .btn-primary:active {
+    transform: translateY(0);
+  }
+
+  .btn-secondary {
+    @apply px-6 py-3 font-medium rounded-xl;
+    background: var(--ink-light);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: rgba(250, 248, 245, 0.9);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .btn-secondary:hover {
+    background: var(--ink-lighter);
+    border-color: rgba(26, 205, 138, 0.2);
+    color: #fff;
+  }
+
+  /* Input field */
+  .input-field {
+    @apply w-full px-4 py-3 rounded-xl font-sans;
+    background: var(--ink-light);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: var(--cream);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .input-field::placeholder {
+    color: rgba(142, 154, 154, 0.6);
+  }
+
+  .input-field:focus {
+    outline: none;
+    border-color: rgba(26, 205, 138, 0.4);
+    box-shadow:
+      0 0 0 3px rgba(26, 205, 138, 0.1),
+      0 0 20px -5px rgba(26, 205, 138, 0.2);
+  }
+
+  /* Tag/Badge */
+  .tag {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium;
+    background: rgba(26, 205, 138, 0.1);
+    color: #81f4c8;
+    border: 1px solid rgba(26, 205, 138, 0.15);
+  }
+
+  /* Divider */
+  .divider {
+    @apply w-full h-px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(26, 205, 138, 0.2) 50%,
+      transparent 100%
+    );
+  }
+}
+
+/* ============================================
+   ANIMATION DELAYS FOR STAGGER EFFECTS
+   ============================================ */
+
+@layer utilities {
+  .delay-100 { animation-delay: 100ms; }
+  .delay-200 { animation-delay: 200ms; }
+  .delay-300 { animation-delay: 300ms; }
+  .delay-400 { animation-delay: 400ms; }
+  .delay-500 { animation-delay: 500ms; }
+  .delay-600 { animation-delay: 600ms; }
+  .delay-700 { animation-delay: 700ms; }
+  .delay-800 { animation-delay: 800ms; }
+
+  /* Fill mode for animations */
+  .fill-backwards { animation-fill-mode: backwards; }
+  .fill-forwards { animation-fill-mode: forwards; }
+  .fill-both { animation-fill-mode: both; }
+}
+
+/* ============================================
+   TRANSACTION TABLE
+   ============================================ */
+
+.transaction-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.transaction-table th {
+  @apply sticky top-0 z-10 text-left font-medium text-midnight-300 uppercase tracking-wider text-xs;
+  background: var(--ink);
+}
+
+.transaction-table tbody tr {
+  transition: background-color 0.2s ease;
+}
+
+.transaction-table tbody tr:hover {
+  background: rgba(26, 205, 138, 0.03);
+}
+
+/* ============================================
+   DROPZONE STYLES
+   ============================================ */
+
+.dropzone {
+  @apply relative rounded-2xl overflow-hidden;
+  border: 2px dashed rgba(142, 154, 154, 0.3);
+  background: linear-gradient(
+    135deg,
+    rgba(26, 32, 32, 0.5) 0%,
+    rgba(10, 15, 15, 0.5) 100%
+  );
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dropzone:hover {
+  border-color: rgba(26, 205, 138, 0.3);
+  background: linear-gradient(
+    135deg,
+    rgba(26, 205, 138, 0.03) 0%,
+    rgba(10, 15, 15, 0.5) 100%
+  );
+}
+
+.dropzone.active {
+  border-color: rgba(26, 205, 138, 0.6);
+  border-style: solid;
+  background: linear-gradient(
+    135deg,
+    rgba(26, 205, 138, 0.08) 0%,
+    rgba(10, 15, 15, 0.5) 100%
+  );
+  box-shadow:
+    0 0 40px -10px rgba(26, 205, 138, 0.3),
+    0 0 0 1px rgba(26, 205, 138, 0.2) inset;
+}
+
+/* ============================================
+   CHART TOOLTIP OVERRIDE
+   ============================================ */
+
+.recharts-tooltip-wrapper {
+  z-index: 100 !important;
+}
+
+.recharts-default-tooltip {
+  background: var(--ink-light) !important;
+  border: 1px solid rgba(26, 205, 138, 0.15) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* ============================================
+   LOADING STATES
+   ============================================ */
+
+.skeleton {
+  @apply relative overflow-hidden;
+  background: var(--ink-lighter);
+  border-radius: 8px;
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(26, 205, 138, 0.05) 50%,
+    transparent 100%
+  );
+  animation: shimmer 1.5s infinite;
+}
+
+/* ============================================
+   MEDIA QUERIES
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .grain-overlay {
+    display: none;
+  }
+}
+
+/* Disable grain on mobile for performance */
+@media (max-width: 768px) {
+  .grain-overlay {
+    opacity: 0.02;
+  }
+}
