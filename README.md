@@ -2,6 +2,17 @@
 
 Personal finance analyzer with AI-powered categorization and natural language queries. All data stays local.
 
+<table>
+  <tr>
+    <td><img src="images/1.png" width="400" alt="Upload" /></td>
+    <td><img src="images/2.png" width="400" alt="Dashboard" /></td>
+  </tr>
+  <tr>
+    <td><img src="images/3.png" width="400" alt="Ask AI" /></td>
+    <td><img src="images/4.png" width="400" alt="Settings" /></td>
+  </tr>
+</table>
+
 ## Prerequisites
 
 - Python 3.11+
