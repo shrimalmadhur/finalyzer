@@ -8,8 +8,8 @@ from backend.models import Transaction, TransactionSource
 from backend.parsers.validation import (
     ParseResult,
     ValidationError,
-    logger,
     log_parse_result,
+    logger,
     parse_amount_safe,
     validate_csv_contents,
     validate_date,
@@ -101,9 +101,7 @@ def parse_chase_csv(contents: bytes, file_hash: str) -> list[Transaction]:
                 continue
 
             # Create transaction
-            txn_hash = compute_transaction_hash(
-                TransactionSource.CHASE_CREDIT, txn_date, description, amount
-            )
+            txn_hash = compute_transaction_hash(TransactionSource.CHASE_CREDIT, txn_date, description, amount)
 
             transaction = Transaction(
                 source=TransactionSource.CHASE_CREDIT,
@@ -130,18 +128,18 @@ def parse_chase_csv(contents: bytes, file_hash: str) -> list[Transaction]:
 def _is_payment(txn_type: str, description: str, category: str) -> bool:
     """
     Check if this transaction is a credit card payment (not actual spending).
-    
+
     These should be excluded because:
     - They're just transfers from your bank account to pay the CC bill
     - They'd double-count spending (you already tracked the original purchase)
     """
     description_lower = description.lower()
     category_lower = category.lower() if category else ""
-    
+
     # Check transaction type - Chase uses "Payment" for bill payments
     if txn_type == "payment":
         return True
-    
+
     # Check description patterns for payments
     payment_keywords = [
         "payment thank you",
@@ -153,15 +151,15 @@ def _is_payment(txn_type: str, description: str, category: str) -> bool:
         "ach payment",
         "payment received",
     ]
-    
+
     for keyword in payment_keywords:
         if keyword in description_lower:
             return True
-    
+
     # Check category
     if "payment" in category_lower:
         return True
-    
+
     return False
 
 
@@ -171,12 +169,11 @@ def _parse_date(date_str: str) -> datetime | None:
         "%m/%d/%Y",  # 12/30/2024
         "%m/%d/%y",  # 12/30/24
     ]
-    
+
     for fmt in formats:
         try:
             return datetime.strptime(date_str, fmt).date()
         except ValueError:
             continue
-    
-    return None
 
+    return None

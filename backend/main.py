@@ -13,8 +13,8 @@ from backend.models import (
     Transaction,
     UploadResponse,
 )
-from backend.services.upload import process_upload
 from backend.services.query_engine import query_transactions
+from backend.services.upload import process_upload
 
 app = FastAPI(
     title="FINalyzer",
@@ -53,9 +53,7 @@ async def upload_file(file: UploadFile = File(...)):
     # Check file extension
     filename_lower = file.filename.lower()
     if not (filename_lower.endswith(".pdf") or filename_lower.endswith(".csv")):
-        raise HTTPException(
-            status_code=400, detail="Only PDF and CSV files are supported"
-        )
+        raise HTTPException(status_code=400, detail="Only PDF and CSV files are supported")
 
     # Read file contents
     contents = await file.read()
@@ -81,6 +79,7 @@ async def get_transactions(
 ):
     """Get transactions with optional filters."""
     from datetime import date as date_type
+
     from backend.models import TransactionCategory, TransactionSource
 
     start = date_type.fromisoformat(start_date) if start_date else None
@@ -88,9 +87,7 @@ async def get_transactions(
     cat = TransactionCategory(category) if category else None
     src = TransactionSource(source) if source else None
 
-    return db.get_all_transactions(
-        start_date=start, end_date=end, category=cat, source=src, limit=limit
-    )
+    return db.get_all_transactions(start_date=start, end_date=end, category=cat, source=src, limit=limit)
 
 
 @app.post("/query", response_model=QueryResponse)
@@ -127,7 +124,7 @@ async def get_uploaded_files():
 async def get_processing_status():
     """Get status of background processing jobs."""
     from backend.services.categorizer import get_processing_status
-    
+
     jobs = get_processing_status()
     return {"jobs": jobs, "has_active": any(j["status"] == "processing" for j in jobs)}
 
@@ -160,12 +157,12 @@ async def recategorize_subscriptions():
     Re-categorize transactions to fix subscription detection.
     This updates existing transactions that should be subscriptions.
     """
-    from backend.services.categorizer import _check_known_subscription
     from backend.models import TransactionCategory
-    
+    from backend.services.categorizer import _check_known_subscription
+
     # Get all transactions
     all_transactions = db.get_all_transactions(limit=10000)
-    
+
     updated = 0
     for txn in all_transactions:
         # Check if this should be a subscription
@@ -173,7 +170,7 @@ async def recategorize_subscriptions():
             if txn.category != TransactionCategory.SUBSCRIPTIONS:
                 db.update_transaction_category(txn.id, TransactionCategory.SUBSCRIPTIONS)
                 updated += 1
-    
+
     return {
         "status": "complete",
         "transactions_checked": len(all_transactions),
@@ -186,48 +183,49 @@ async def retag_transactions(reembed: bool = True):
     """
     Re-tag all transactions using the tagging service.
     Useful for applying tags to existing transactions.
-    
+
     Args:
         reembed: If True, also re-embed transactions in vector store for better search
     """
     import asyncio
-    from backend.services.tagger import tag_transactions_fast, schedule_llm_tagging
+
     from backend.db.vector import vector_store
-    
+    from backend.services.tagger import schedule_llm_tagging, tag_transactions_fast
+
     # Get all transactions
     all_transactions = db.get_all_transactions(limit=10000)
-    
+
     # Fast tag first
     tag_transactions_fast(all_transactions)
-    
+
     # Update DB with fast tags
     fast_tagged = 0
     for txn in all_transactions:
         if txn.tags:
             db.update_transaction_tags(txn.id, txn.tags)
             fast_tagged += 1
-    
+
     # Re-embed tagged transactions in vector store for better semantic search
     reembedded = 0
     if reembed:
         # Get updated transactions from DB (with tags)
         updated_transactions = db.get_all_transactions(limit=10000)
         tagged_txns = [txn for txn in updated_transactions if txn.tags]
-        
+
         if tagged_txns:
             # Re-embed in batches
             batch_size = 50
             for i in range(0, len(tagged_txns), batch_size):
-                batch = tagged_txns[i:i + batch_size]
+                batch = tagged_txns[i : i + batch_size]
                 try:
                     await vector_store.add_transactions_batch(batch)
                     reembedded += len(batch)
                 except Exception as e:
                     print(f"Re-embed batch failed: {e}")
-    
+
     # Get untagged for LLM
     untagged_ids = [str(txn.id) for txn in all_transactions if not txn.tags]
-    
+
     if untagged_ids:
         asyncio.create_task(schedule_llm_tagging(untagged_ids))
         return {
@@ -237,7 +235,7 @@ async def retag_transactions(reembed: bool = True):
             "reembedded": reembedded,
             "llm_tagging_scheduled": len(untagged_ids),
         }
-    
+
     return {
         "status": "complete",
         "transactions_checked": len(all_transactions),
@@ -249,11 +247,12 @@ async def retag_transactions(reembed: bool = True):
 
 # ==================== DASHBOARD ENDPOINTS ====================
 
+
 @app.get("/dashboard/overview")
 async def get_dashboard_overview(year: int | None = None):
     """Get overall dashboard statistics."""
     from datetime import date as date_type
-    
+
     # Filter by year if specified
     if year:
         start_date = date_type(year, 1, 1)
@@ -261,7 +260,7 @@ async def get_dashboard_overview(year: int | None = None):
         all_transactions = db.get_all_transactions(start_date=start_date, end_date=end_date, limit=10000)
     else:
         all_transactions = db.get_all_transactions(limit=10000)
-    
+
     if not all_transactions:
         return {
             "total_transactions": 0,
@@ -272,13 +271,13 @@ async def get_dashboard_overview(year: int | None = None):
             "sources_count": 0,
             "year": year,
         }
-    
+
     total_spending = sum(abs(t.amount) for t in all_transactions if t.amount < 0)
     total_income = sum(t.amount for t in all_transactions if t.amount > 0)
     dates = [t.date for t in all_transactions]
     categories = set(t.category.value if t.category else "Uncategorized" for t in all_transactions)
     sources = set(t.source.value for t in all_transactions)
-    
+
     return {
         "total_transactions": len(all_transactions),
         "total_spending": round(total_spending, 2),
@@ -297,7 +296,7 @@ async def get_dashboard_overview(year: int | None = None):
 async def get_spending_by_category(year: int | None = None):
     """Get spending breakdown by category."""
     from datetime import date as date_type
-    
+
     # Filter by year if specified
     if year:
         start_date = date_type(year, 1, 1)
@@ -305,17 +304,17 @@ async def get_spending_by_category(year: int | None = None):
         transactions = db.get_all_transactions(start_date=start_date, end_date=end_date, limit=10000)
     else:
         transactions = db.get_all_transactions(limit=10000)
-    
+
     # Group by category
     by_category: dict[str, float] = {}
     for t in transactions:
         if t.amount < 0:  # Only spending
             cat = t.category.value if t.category else "Uncategorized"
             by_category[cat] = by_category.get(cat, 0) + abs(t.amount)
-    
+
     # Sort by amount descending
     sorted_categories = sorted(by_category.items(), key=lambda x: x[1], reverse=True)
-    
+
     return {
         "data": [{"category": cat, "amount": round(amt, 2)} for cat, amt in sorted_categories],
         "total": round(sum(by_category.values()), 2),
@@ -325,14 +324,13 @@ async def get_spending_by_category(year: int | None = None):
 @app.get("/dashboard/monthly-spending")
 async def get_monthly_spending(year: int | None = None):
     """Get monthly spending for trend analysis."""
-    from datetime import date as date_type
     from collections import defaultdict
-    
+
     transactions = db.get_all_transactions(limit=10000)
-    
+
     # Group by year-month
     monthly: dict[str, dict] = defaultdict(lambda: {"spending": 0.0, "income": 0.0, "count": 0})
-    
+
     for t in transactions:
         if year and t.date.year != year:
             continue
@@ -342,10 +340,10 @@ async def get_monthly_spending(year: int | None = None):
             monthly[month_key]["spending"] += abs(t.amount)
         else:
             monthly[month_key]["income"] += t.amount
-    
+
     # Sort by month
     sorted_months = sorted(monthly.items())
-    
+
     return {
         "data": [
             {
@@ -363,14 +361,13 @@ async def get_monthly_spending(year: int | None = None):
 @app.get("/dashboard/monthly-by-category")
 async def get_monthly_by_category(year: int | None = None):
     """Get monthly spending broken down by category."""
-    from datetime import date as date_type
     from collections import defaultdict
-    
+
     transactions = db.get_all_transactions(limit=10000)
-    
+
     # Group by year-month and category
     monthly_cat: dict[str, dict[str, float]] = defaultdict(lambda: defaultdict(float))
-    
+
     for t in transactions:
         if year and t.date.year != year:
             continue
@@ -378,15 +375,15 @@ async def get_monthly_by_category(year: int | None = None):
             month_key = t.date.strftime("%Y-%m")
             cat = t.category.value if t.category else "Uncategorized"
             monthly_cat[month_key][cat] += abs(t.amount)
-    
+
     # Get all categories
-    all_categories = set()
+    all_categories: set[str] = set()
     for cats in monthly_cat.values():
         all_categories.update(cats.keys())
-    
+
     # Sort by month
     sorted_months = sorted(monthly_cat.items())
-    
+
     return {
         "data": [
             {"month": month, **{cat: round(cats.get(cat, 0), 2) for cat in all_categories}}
@@ -400,12 +397,12 @@ async def get_monthly_by_category(year: int | None = None):
 async def get_year_comparison():
     """Get year-over-year spending comparison."""
     from collections import defaultdict
-    
+
     transactions = db.get_all_transactions(limit=10000)
-    
+
     # Group by year
     yearly: dict[int, dict] = defaultdict(lambda: {"spending": 0.0, "income": 0.0, "count": 0})
-    
+
     for t in transactions:
         year = t.date.year
         yearly[year]["count"] += 1
@@ -413,10 +410,10 @@ async def get_year_comparison():
             yearly[year]["spending"] += abs(t.amount)
         else:
             yearly[year]["income"] += t.amount
-    
+
     # Sort by year
     sorted_years = sorted(yearly.items(), reverse=True)
-    
+
     result = []
     for i, (year, data) in enumerate(sorted_years):
         entry = {
@@ -432,7 +429,7 @@ async def get_year_comparison():
                 change = ((data["spending"] - prev_year_data["spending"]) / prev_year_data["spending"]) * 100
                 entry["yoy_change"] = round(change, 1)
         result.append(entry)
-    
+
     return {"data": result}
 
 
@@ -442,10 +439,10 @@ async def get_top_merchants(
     year: int | None = None,
 ):
     """Get top merchants by spending."""
-    from datetime import date as date_type
-    from collections import defaultdict
     import re
-    
+    from collections import defaultdict
+    from datetime import date as date_type
+
     # Filter by year if specified
     if year:
         start_date = date_type(year, 1, 1)
@@ -453,27 +450,27 @@ async def get_top_merchants(
         transactions = db.get_all_transactions(start_date=start_date, end_date=end_date, limit=10000)
     else:
         transactions = db.get_all_transactions(limit=10000)
-    
+
     # Group by merchant (simplified name)
     merchants: dict[str, dict] = defaultdict(lambda: {"amount": 0.0, "count": 0})
-    
+
     for t in transactions:
         if t.amount < 0:  # Only spending
             # Simplify merchant name (remove numbers, codes, etc.)
             name = t.description.upper()
             # Remove common suffixes/prefixes
-            name = re.sub(r'\s*#\d+.*$', '', name)
-            name = re.sub(r'\s*\d{5,}.*$', '', name)
-            name = re.sub(r'^\s*(SQ\s*\*|TST\s*\*|PP\s*\*)', '', name)
+            name = re.sub(r"\s*#\d+.*$", "", name)
+            name = re.sub(r"\s*\d{5,}.*$", "", name)
+            name = re.sub(r"^\s*(SQ\s*\*|TST\s*\*|PP\s*\*)", "", name)
             name = name.strip()[:30]  # Limit length
-            
+
             if name:
                 merchants[name]["amount"] += abs(t.amount)
                 merchants[name]["count"] += 1
-    
+
     # Sort by amount and get top N
     sorted_merchants = sorted(merchants.items(), key=lambda x: x[1]["amount"], reverse=True)[:limit]
-    
+
     return {
         "data": [
             {"merchant": name, "amount": round(data["amount"], 2), "count": data["count"]}
@@ -486,7 +483,7 @@ async def get_top_merchants(
 async def get_spending_by_source(year: int | None = None):
     """Get spending breakdown by card/source."""
     from datetime import date as date_type
-    
+
     # Filter by year if specified
     if year:
         start_date = date_type(year, 1, 1)
@@ -494,11 +491,11 @@ async def get_spending_by_source(year: int | None = None):
         transactions = db.get_all_transactions(start_date=start_date, end_date=end_date, limit=10000)
     else:
         transactions = db.get_all_transactions(limit=10000)
-    
+
     # Group by source
     by_source: dict[str, dict] = {}
     source_labels = {"chase_credit": "Chase", "amex": "Amex", "coinbase": "Coinbase"}
-    
+
     for t in transactions:
         if t.amount < 0:  # Only spending
             src = t.source.value
@@ -507,7 +504,7 @@ async def get_spending_by_source(year: int | None = None):
                 by_source[label] = {"amount": 0.0, "count": 0}
             by_source[label]["amount"] += abs(t.amount)
             by_source[label]["count"] += 1
-    
+
     return {
         "data": [
             {"source": src, "amount": round(data["amount"], 2), "count": data["count"]}
@@ -519,9 +516,10 @@ async def get_spending_by_source(year: int | None = None):
 @app.get("/dashboard/daily-spending")
 async def get_daily_spending(days: int = 30, year: int | None = None):
     """Get daily spending for the last N days, or for a specific year."""
-    from datetime import date as date_type, timedelta
     from collections import defaultdict
-    
+    from datetime import date as date_type
+    from datetime import timedelta
+
     if year:
         # Show daily spending for the specified year
         start_date = date_type(year, 1, 1)
@@ -530,32 +528,35 @@ async def get_daily_spending(days: int = 30, year: int | None = None):
         # Show last N days
         end_date = date_type.today()
         start_date = end_date - timedelta(days=days)
-    
+
     transactions = db.get_all_transactions(start_date=start_date, end_date=end_date, limit=10000)
-    
+
     # Group by day
     daily: dict[str, float] = defaultdict(float)
-    
+
     for t in transactions:
         if t.amount < 0:
             day_key = t.date.isoformat()
             daily[day_key] += abs(t.amount)
-    
+
     # Fill in missing days with 0
     result = []
     current = start_date
     while current <= end_date:
         day_key = current.isoformat()
-        result.append({
-            "date": day_key,
-            "amount": round(daily.get(day_key, 0), 2),
-        })
+        result.append(
+            {
+                "date": day_key,
+                "amount": round(daily.get(day_key, 0), 2),
+            }
+        )
         current += timedelta(days=1)
-    
+
     return {"data": result}
 
 
 # ==================== INSIGHTS ENDPOINTS ====================
+
 
 @app.get("/insights")
 async def get_insights(year: int | None = None):
@@ -586,14 +587,8 @@ async def get_insights(year: int | None = None):
             }
             for i in report.insights
         ],
-        "top_categories": [
-            {"category": cat, "amount": round(amt, 2)}
-            for cat, amt in report.top_categories
-        ],
-        "monthly_trend": [
-            {"month": month, "amount": round(amt, 2)}
-            for month, amt in report.monthly_trend
-        ],
+        "top_categories": [{"category": cat, "amount": round(amt, 2)} for cat, amt in report.top_categories],
+        "monthly_trend": [{"month": month, "amount": round(amt, 2)} for month, amt in report.monthly_trend],
     }
 
 
@@ -629,14 +624,8 @@ async def get_monthly_insights(year: int, month: int):
             }
             for i in report.insights
         ],
-        "top_categories": [
-            {"category": cat, "amount": round(amt, 2)}
-            for cat, amt in report.top_categories
-        ],
-        "monthly_trend": [
-            {"month": month, "amount": round(amt, 2)}
-            for month, amt in report.monthly_trend
-        ],
+        "top_categories": [{"category": cat, "amount": round(amt, 2)} for cat, amt in report.top_categories],
+        "monthly_trend": [{"month": month, "amount": round(amt, 2)} for month, amt in report.monthly_trend],
     }
 
 
@@ -672,4 +661,3 @@ if __name__ == "__main__":
         port=settings.api_port,
         reload=settings.dev_mode,
     )
-

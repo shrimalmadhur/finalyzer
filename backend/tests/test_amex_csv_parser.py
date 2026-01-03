@@ -3,44 +3,44 @@
 import pytest
 
 from backend.parsers.amex_csv import (
-    parse_amex_csv,
     _build_header_map,
-    _parse_date,
-    _is_payment,
     _clean_description,
+    _is_payment,
+    _parse_date,
+    parse_amex_csv,
 )
 from backend.parsers.validation import parse_amount_safe
 
 
 class TestBuildHeaderMap:
     """Test header mapping for different CSV formats."""
-    
+
     def test_maps_standard_headers(self):
         """Should map standard Amex headers."""
         headers = ["Date", "Description", "Amount", "Category"]
         header_map = _build_header_map(headers)
-        
+
         assert header_map["date"] == "Date"
         assert header_map["description"] == "Description"
         assert header_map["amount"] == "Amount"
         assert header_map["category"] == "Category"
-    
+
     def test_maps_statement_view_headers(self):
         """Should map statement view headers with Card Member."""
         headers = ["Date", "Description", "Card Member", "Account #", "Amount"]
         header_map = _build_header_map(headers)
-        
+
         assert header_map["date"] == "Date"
         assert header_map["description"] == "Description"
         assert header_map["amount"] == "Amount"
         assert header_map["card_member"] == "Card Member"
         assert header_map["account"] == "Account #"
-    
+
     def test_case_insensitive(self):
         """Should handle different cases."""
         headers = ["DATE", "description", "AMOUNT"]
         header_map = _build_header_map(headers)
-        
+
         assert header_map["date"] == "DATE"
         assert header_map["description"] == "description"
         assert header_map["amount"] == "AMOUNT"
@@ -48,7 +48,7 @@ class TestBuildHeaderMap:
 
 class TestParseDate:
     """Test date parsing."""
-    
+
     def test_parses_mm_dd_yyyy(self):
         """Should parse MM/DD/YYYY format."""
         result = _parse_date("12/31/2024")
@@ -56,7 +56,7 @@ class TestParseDate:
         assert result.year == 2024
         assert result.month == 12
         assert result.day == 31
-    
+
     def test_parses_mm_dd_yy(self):
         """Should parse MM/DD/YY format."""
         result = _parse_date("12/31/24")
@@ -64,7 +64,7 @@ class TestParseDate:
         assert result.year == 2024
         assert result.month == 12
         assert result.day == 31
-    
+
     def test_parses_yyyy_mm_dd(self):
         """Should parse YYYY-MM-DD format."""
         result = _parse_date("2024-12-31")
@@ -72,7 +72,7 @@ class TestParseDate:
         assert result.year == 2024
         assert result.month == 12
         assert result.day == 31
-    
+
     def test_invalid_date_returns_none(self):
         """Should return None for invalid dates."""
         assert _parse_date("invalid") is None
@@ -115,21 +115,21 @@ class TestParseAmount:
 
 class TestIsPayment:
     """Test payment detection."""
-    
+
     def test_detects_autopay_payment(self):
         """Should detect autopay payments."""
         assert _is_payment("AUTOPAY PAYMENT - THANK YOU") is True
-    
+
     def test_detects_mobile_payment(self):
         """Should detect mobile payments."""
         assert _is_payment("MOBILE PAYMENT - THANK YOU") is True
-    
+
     def test_allows_regular_transactions(self):
         """Should allow regular merchant transactions."""
         assert _is_payment("DELTA AIR LINES ATLANTA") is False
         assert _is_payment("UBER") is False
         assert _is_payment("SAFEWAY #1993 1993 SEATTLE WA") is False
-    
+
     def test_case_insensitive(self):
         """Should be case insensitive."""
         assert _is_payment("autopay payment - thank you") is True
@@ -138,12 +138,12 @@ class TestIsPayment:
 
 class TestCleanDescription:
     """Test description cleaning."""
-    
+
     def test_removes_extra_whitespace(self):
         """Should normalize whitespace."""
         result = _clean_description("DELTA   AIR   LINES")
         assert result == "DELTA AIR LINES"
-    
+
     def test_strips_leading_trailing(self):
         """Should strip leading/trailing whitespace."""
         result = _clean_description("  UBER  ")
@@ -152,7 +152,7 @@ class TestCleanDescription:
 
 class TestParseAmexCsv:
     """Integration tests for the full parser."""
-    
+
     def test_parses_statement_view_format(self):
         """Should parse statement view CSV format."""
         csv_content = b"""Date,Description,Card Member,Account #,Amount
@@ -161,18 +161,18 @@ class TestParseAmexCsv:
 12/17/2024,AUTOPAY PAYMENT - THANK YOU,JOHN SMITH,-21009,-178.92
 """
         transactions = parse_amex_csv(csv_content, "test-hash")
-        
+
         # Should have 2 transactions (payment filtered out)
         assert len(transactions) == 2
-        
+
         # Check first transaction (Airbnb - charge)
         assert transactions[0].description == "AIRBNB * HMJ3AF2BTZ SAN FRANCISCO CA"
         assert transactions[0].amount == -49.25  # Charge is negative
-        
+
         # Check second transaction (Delta - refund)
         assert "DELTA" in transactions[1].description
         assert transactions[1].amount == 349.91  # Credit is positive
-    
+
     def test_parses_activity_download_format(self):
         """Should parse activity download CSV format."""
         csv_content = b"""Date,Description,Amount,Category
@@ -180,11 +180,11 @@ class TestParseAmexCsv:
 01/14/2024,UBER TRIP,25.00,Transportation
 """
         transactions = parse_amex_csv(csv_content, "test-hash")
-        
+
         assert len(transactions) == 2
         assert transactions[0].amount == -6.50
         assert transactions[0].raw_category == "Food & Drink"
-    
+
     def test_filters_payments(self):
         """Should filter out all payment types."""
         csv_content = b"""Date,Description,Card Member,Account #,Amount
@@ -194,11 +194,11 @@ class TestParseAmexCsv:
 12/06/2024,UBER,JANE DOE,-23013,35.99
 """
         transactions = parse_amex_csv(csv_content, "test-hash")
-        
+
         # Only Uber should remain
         assert len(transactions) == 1
         assert "UBER" in transactions[0].description
-    
+
     def test_handles_credits_correctly(self):
         """Should handle credits (negative amounts in CSV) correctly."""
         csv_content = b"""Date,Description,Card Member,Account #,Amount
@@ -206,18 +206,18 @@ class TestParseAmexCsv:
 04/16/2024,YMCA OF GREATER SEATSEATTLE             WA,JANE DOE,-23013,-225.00
 """
         transactions = parse_amex_csv(csv_content, "test-hash")
-        
+
         # Credits should be positive in our system
         assert len(transactions) == 2
         assert transactions[0].amount == 150.00
         assert transactions[1].amount == 225.00
-    
+
     def test_handles_empty_csv(self):
         """Should handle empty CSV gracefully."""
         csv_content = b"""Date,Description,Amount"""
         transactions = parse_amex_csv(csv_content, "test-hash")
         assert len(transactions) == 0
-    
+
     def test_handles_malformed_rows(self):
         """Should skip malformed rows."""
         csv_content = b"""Date,Description,Amount
@@ -231,7 +231,7 @@ invalid,Missing Amount,
 
 class TestRealWorldScenarios:
     """Test real-world transaction patterns."""
-    
+
     def test_uber_transactions(self):
         """Should correctly parse Uber transactions."""
         csv_content = b"""Date,Description,Card Member,Account #,Amount
@@ -239,12 +239,12 @@ class TestRealWorldScenarios:
 12/03/2024,UBER,JANE DOE,-23013,25.21
 """
         transactions = parse_amex_csv(csv_content, "test-hash")
-        
+
         assert len(transactions) == 2
         for txn in transactions:
             assert "UBER" in txn.description
             assert txn.amount < 0  # Charges are negative
-    
+
     def test_airline_transactions(self):
         """Should correctly parse airline transactions."""
         csv_content = b"""Date,Description,Card Member,Account #,Amount
@@ -252,11 +252,11 @@ class TestRealWorldScenarios:
 05/28/2024,DELTA AIR LINES,JOHN SMITH,-21009,395.90
 """
         transactions = parse_amex_csv(csv_content, "test-hash")
-        
+
         assert len(transactions) == 2
         for txn in transactions:
             assert "DELTA" in txn.description
-    
+
     def test_grocery_transactions(self):
         """Should correctly parse grocery transactions."""
         csv_content = b"""Date,Description,Card Member,Account #,Amount
@@ -264,7 +264,7 @@ class TestRealWorldScenarios:
 01/08/2024,SAFEWAY #1993 1993  SEATTLE             WA,JANE DOE,-23013,77.95
 """
         transactions = parse_amex_csv(csv_content, "test-hash")
-        
+
         assert len(transactions) == 2
         for txn in transactions:
             assert "SAFEWAY" in txn.description
@@ -272,4 +272,3 @@ class TestRealWorldScenarios:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-

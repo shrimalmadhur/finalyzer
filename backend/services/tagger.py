@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-from typing import Optional
 
 from litellm import acompletion
 
@@ -18,7 +17,7 @@ def _get_model_name() -> str:
         return f"ollama/{settings.ollama_model}"
 
 
-def _get_api_base() -> Optional[str]:
+def _get_api_base() -> str | None:
     """Get the API base URL for Ollama."""
     if settings.llm_provider == "ollama":
         return settings.ollama_host
@@ -61,10 +60,8 @@ MERCHANT_TAGS: dict[str, list[str]] = {
     "hawaiian": ["travel", "airline", "flight", "booking"],
     "sun country": ["travel", "airline", "flight", "booking"],
     "allegiant": ["travel", "airline", "flight", "booking"],
-    
     # Food & Dining
     "doordash": ["food", "delivery", "restaurant", "takeout"],
-    "uber eats": ["food", "delivery", "restaurant", "takeout"],
     "grubhub": ["food", "delivery", "restaurant", "takeout"],
     "postmates": ["food", "delivery", "restaurant", "takeout"],
     "instacart": ["groceries", "delivery", "food"],
@@ -77,7 +74,6 @@ MERCHANT_TAGS: dict[str, list[str]] = {
     "taco bell": ["food", "restaurant", "fast-food", "mexican"],
     "panera": ["food", "restaurant", "fast-casual", "bakery"],
     "sweetgreen": ["food", "restaurant", "healthy", "salad"],
-    
     # Shopping
     "amazon": ["shopping", "online", "retail", "ecommerce"],
     "target": ["shopping", "retail", "department-store"],
@@ -92,7 +88,6 @@ MERCHANT_TAGS: dict[str, list[str]] = {
     "macys": ["shopping", "fashion", "clothing", "department-store"],
     "sephora": ["shopping", "beauty", "cosmetics"],
     "ulta": ["shopping", "beauty", "cosmetics"],
-    
     # Transportation - Rideshare (include brand name as tag for specific searches)
     "uber": ["transportation", "rideshare", "uber"],
     "uber eats": ["food", "delivery", "restaurant", "takeout", "uber"],  # Override for Uber Eats
@@ -100,7 +95,6 @@ MERCHANT_TAGS: dict[str, list[str]] = {
     "grab": ["transportation", "rideshare", "grab"],
     "bolt": ["transportation", "rideshare", "bolt"],
     "gojek": ["transportation", "rideshare", "gojek"],
-    
     # Gas stations
     "shell": ["gas", "fuel", "automotive"],
     "chevron": ["gas", "fuel", "automotive"],
@@ -114,7 +108,6 @@ MERCHANT_TAGS: dict[str, list[str]] = {
     "tesla": ["automotive", "electric", "charging"],
     "chargepoint": ["automotive", "electric", "charging"],
     "electrify": ["automotive", "electric", "charging"],
-    
     # Subscriptions & Services
     "netflix": ["subscription", "streaming", "entertainment", "movies", "tv"],
     "spotify": ["subscription", "streaming", "music", "entertainment"],
@@ -136,7 +129,6 @@ MERCHANT_TAGS: dict[str, list[str]] = {
     "microsoft": ["subscription", "software", "office", "productivity"],
     "zoom": ["subscription", "software", "video", "meetings"],
     "slack": ["subscription", "software", "communication", "work"],
-    
     # Groceries
     "whole foods": ["groceries", "organic", "food", "supermarket"],
     "trader joe": ["groceries", "food", "supermarket"],
@@ -144,7 +136,6 @@ MERCHANT_TAGS: dict[str, list[str]] = {
     "kroger": ["groceries", "food", "supermarket"],
     "publix": ["groceries", "food", "supermarket"],
     "aldi": ["groceries", "food", "supermarket", "discount"],
-    
     # Health & Fitness
     "cvs": ["health", "pharmacy", "drugstore"],
     "walgreens": ["health", "pharmacy", "drugstore"],
@@ -153,8 +144,7 @@ MERCHANT_TAGS: dict[str, list[str]] = {
     "planet fitness": ["fitness", "gym", "health", "membership"],
     "equinox": ["fitness", "gym", "health", "membership"],
     "orangetheory": ["fitness", "gym", "health", "membership"],
-    
-    # Bills & Utilities  
+    # Bills & Utilities
     "at&t": ["bills", "phone", "telecom", "utilities"],
     "verizon": ["bills", "phone", "telecom", "utilities"],
     "t-mobile": ["bills", "phone", "telecom", "utilities"],
@@ -179,77 +169,76 @@ def tag_transactions_fast(transactions: list[Transaction]) -> None:
             if tags:
                 txn.tags = tags
                 tagged_count += 1
-    
+
     print(f"Fast tagging: {tagged_count}/{len(transactions)} from known merchants")
 
 
 def _get_merchant_tags(description: str) -> list[str]:
     """Get tags for a transaction based on merchant name."""
     desc_lower = description.lower()
-    
+
     for merchant, tags in MERCHANT_TAGS.items():
         if merchant in desc_lower:
             return tags
-    
+
     return []
 
 
-async def schedule_llm_tagging(transaction_ids: list[str], file_hash: Optional[str] = None) -> None:
+async def schedule_llm_tagging(transaction_ids: list[str], file_hash: str | None = None) -> None:
     """
     Tag transactions by ID using LLM in batches.
     Updates the database directly.
     """
     from backend.db.sqlite import db
-    
+
     if not transaction_ids:
         return
-    
+
     # Get transactions from DB
     transactions = db.get_transactions_by_ids(transaction_ids)
     untagged = [t for t in transactions if not t.tags]
-    
+
     if not untagged:
         return
-    
+
     print(f"LLM tagging {len(untagged)} transactions in batches...")
-    
+
     # Process in batches of 10
     batch_size = 10
-    
+
     for i in range(0, len(untagged), batch_size):
         batch = untagged[i : i + batch_size]
         batch_num = i // batch_size + 1
         total_batches = (len(untagged) + batch_size - 1) // batch_size
-        
+
         try:
             print(f"  Tagging batch {batch_num}/{total_batches}...")
             await asyncio.wait_for(_tag_batch(batch), timeout=30.0)
-            
+
             # Update database with new tags
             for txn in batch:
                 if txn.tags:
                     db.update_transaction_tags(txn.id, txn.tags)
-                    
-        except asyncio.TimeoutError:
+
+        except TimeoutError:
             print(f"  Batch {batch_num} timeout, skipping...")
         except Exception as e:
             print(f"  Batch {batch_num} error: {e}")
-        
+
         # Small delay between batches to avoid rate limits
         if i + batch_size < len(untagged):
             await asyncio.sleep(0.5)
-    
-    print(f"LLM tagging complete")
+
+    print("LLM tagging complete")
 
 
 async def _tag_batch(transactions: list[Transaction]) -> list[Transaction]:
     """Tag a batch of transactions using LLM."""
     # Build the prompt
     transaction_list = "\n".join(
-        f"{i+1}. {txn.description} (${abs(txn.amount):.2f}, {txn.date})"
-        for i, txn in enumerate(transactions)
+        f"{i + 1}. {txn.description} (${abs(txn.amount):.2f}, {txn.date})" for i, txn in enumerate(transactions)
     )
-    
+
     prompt = f"""Generate search tags for each financial transaction. Tags should be lowercase keywords that would help find this transaction in a search.
 
 Include tags for:
@@ -275,19 +264,19 @@ Only respond with the JSON array, nothing else."""
             temperature=0.1,
             timeout=25.0,
         )
-        
+
         # Parse the response
         content = response.choices[0].message.content.strip()
-        
+
         # Handle potential markdown code blocks
         if content.startswith("```"):
             content = content.split("```")[1]
             if content.startswith("json"):
                 content = content[4:]
             content = content.strip()
-        
+
         tags_list = json.loads(content)
-        
+
         # Apply tags to transactions
         for i, txn in enumerate(transactions):
             if i < len(tags_list):
@@ -295,10 +284,9 @@ Only respond with the JSON array, nothing else."""
                 if isinstance(tags, list):
                     # Ensure all tags are lowercase strings
                     txn.tags = [str(t).lower().strip() for t in tags if t]
-        
+
     except Exception as e:
         print(f"LLM tagging failed: {e}")
         # Leave transactions untagged
-    
-    return transactions
 
+    return transactions

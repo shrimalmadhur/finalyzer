@@ -1,17 +1,16 @@
 """SQLite database operations for Finalyzer."""
 
 import sqlite3
+from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
-from typing import Generator, Optional
 from uuid import UUID
 
 from backend.config import settings
 from backend.models import (
     Transaction,
     TransactionCategory,
-    TransactionCreate,
     TransactionSource,
     UploadedFile,
 )
@@ -53,7 +52,7 @@ CREATE INDEX IF NOT EXISTS idx_uploaded_files_hash ON uploaded_files(file_hash);
 class Database:
     """SQLite database manager."""
 
-    def __init__(self, db_path: Optional[Path] = None):
+    def __init__(self, db_path: Path | None = None):
         self.db_path = db_path or settings.db_path
         settings.ensure_directories()
         self._init_db()
@@ -84,17 +83,13 @@ class Database:
     def file_exists(self, file_hash: str) -> bool:
         """Check if a file with this hash has already been uploaded."""
         with self._get_connection() as conn:
-            cursor = conn.execute(
-                "SELECT 1 FROM uploaded_files WHERE file_hash = ?", (file_hash,)
-            )
+            cursor = conn.execute("SELECT 1 FROM uploaded_files WHERE file_hash = ?", (file_hash,))
             return cursor.fetchone() is not None
 
     def transaction_exists(self, transaction_hash: str) -> bool:
         """Check if a transaction with this hash already exists."""
         with self._get_connection() as conn:
-            cursor = conn.execute(
-                "SELECT 1 FROM transactions WHERE transaction_hash = ?", (transaction_hash,)
-            )
+            cursor = conn.execute("SELECT 1 FROM transactions WHERE transaction_hash = ?", (transaction_hash,))
             return cursor.fetchone() is not None
 
     def add_uploaded_file(self, uploaded_file: UploadedFile) -> None:
@@ -102,7 +97,8 @@ class Database:
         with self._get_connection() as conn:
             conn.execute(
                 """
-                INSERT INTO uploaded_files (id, filename, file_hash, source, transaction_count, uploaded_at)
+                INSERT INTO uploaded_files
+                (id, filename, file_hash, source, transaction_count, uploaded_at)
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
                 (
@@ -122,9 +118,9 @@ class Database:
             try:
                 conn.execute(
                     """
-                    INSERT INTO transactions 
-                    (id, source, source_file_hash, transaction_hash, date, description, amount, category, raw_category, tags)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO transactions (id, source, source_file_hash,
+                    transaction_hash, date, description, amount, category,
+                    raw_category, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         str(transaction.id),
@@ -156,9 +152,7 @@ class Database:
                 skipped += 1
         return added, skipped
 
-    def update_transaction_category(
-        self, transaction_id: UUID, category: TransactionCategory
-    ) -> None:
+    def update_transaction_category(self, transaction_id: UUID, category: TransactionCategory) -> None:
         """Update a transaction's category."""
         with self._get_connection() as conn:
             conn.execute(
@@ -167,9 +161,7 @@ class Database:
             )
             conn.commit()
 
-    def update_transaction_tags(
-        self, transaction_id: UUID, tags: list[str]
-    ) -> None:
+    def update_transaction_tags(self, transaction_id: UUID, tags: list[str]) -> None:
         """Update a transaction's tags."""
         with self._get_connection() as conn:
             conn.execute(
@@ -183,9 +175,9 @@ class Database:
         with self._get_connection() as conn:
             cursor = conn.execute(
                 """
-                SELECT id, source, source_file_hash, transaction_hash, date, description, 
-                       amount, category, raw_category, tags
-                FROM transactions 
+                SELECT id, source, source_file_hash, transaction_hash, date,
+                       description, amount, category, raw_category, tags
+                FROM transactions
                 WHERE tags IS NULL OR tags = ''
                 LIMIT ?
                 """,
@@ -199,15 +191,15 @@ class Database:
             return []
         # Build OR conditions for each tag
         conditions = " OR ".join(["tags LIKE ?" for _ in tags])
-        params = [f"%{tag}%" for tag in tags]
+        params: list[str | int] = [f"%{tag}%" for tag in tags]
         params.append(limit)
-        
+
         with self._get_connection() as conn:
             cursor = conn.execute(
                 f"""
-                SELECT id, source, source_file_hash, transaction_hash, date, description, 
-                       amount, category, raw_category, tags
-                FROM transactions 
+                SELECT id, source, source_file_hash, transaction_hash, date,
+                       description, amount, category, raw_category, tags
+                FROM transactions
                 WHERE {conditions}
                 ORDER BY date DESC
                 LIMIT ?
@@ -221,9 +213,9 @@ class Database:
         with self._get_connection() as conn:
             cursor = conn.execute(
                 """
-                SELECT id, source, source_file_hash, transaction_hash, date, description, 
-                       amount, category, raw_category, tags
-                FROM transactions 
+                SELECT id, source, source_file_hash, transaction_hash, date,
+                       description, amount, category, raw_category, tags
+                FROM transactions
                 WHERE category IS NULL
                 LIMIT ?
                 """,
@@ -233,16 +225,16 @@ class Database:
 
     def get_all_transactions(
         self,
-        start_date: Optional[date] = None,
-        end_date: Optional[date] = None,
-        category: Optional[TransactionCategory] = None,
-        source: Optional[TransactionSource] = None,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        category: TransactionCategory | None = None,
+        source: TransactionSource | None = None,
         limit: int = 1000,
     ) -> list[Transaction]:
         """Get transactions with optional filters."""
         query = """
-            SELECT id, source, source_file_hash, transaction_hash, date, description, 
-                   amount, category, raw_category, tags
+            SELECT id, source, source_file_hash, transaction_hash, date,
+                   description, amount, category, raw_category, tags
             FROM transactions WHERE 1=1
         """
         params: list = []
@@ -272,9 +264,9 @@ class Database:
         with self._get_connection() as conn:
             cursor = conn.execute(
                 """
-                SELECT id, source, source_file_hash, transaction_hash, date, description, 
-                       amount, category, raw_category, tags
-                FROM transactions 
+                SELECT id, source, source_file_hash, transaction_hash, date,
+                       description, amount, category, raw_category, tags
+                FROM transactions
                 WHERE description LIKE ? OR tags LIKE ?
                 ORDER BY date DESC
                 LIMIT ?
@@ -283,13 +275,13 @@ class Database:
             )
             return [self._row_to_transaction(row) for row in cursor.fetchall()]
 
-    def get_transaction_by_id(self, transaction_id: UUID) -> Optional[Transaction]:
+    def get_transaction_by_id(self, transaction_id: UUID) -> Transaction | None:
         """Get a single transaction by ID."""
         with self._get_connection() as conn:
             cursor = conn.execute(
                 """
-                SELECT id, source, source_file_hash, transaction_hash, date, description, 
-                       amount, category, raw_category, tags
+                SELECT id, source, source_file_hash, transaction_hash, date,
+                       description, amount, category, raw_category, tags
                 FROM transactions WHERE id = ?
                 """,
                 (str(transaction_id),),
@@ -305,8 +297,8 @@ class Database:
         with self._get_connection() as conn:
             cursor = conn.execute(
                 f"""
-                SELECT id, source, source_file_hash, transaction_hash, date, description, 
-                       amount, category, raw_category, tags
+                SELECT id, source, source_file_hash, transaction_hash, date,
+                       description, amount, category, raw_category, tags
                 FROM transactions WHERE id IN ({placeholders})
                 ORDER BY date DESC
                 """,
@@ -314,9 +306,7 @@ class Database:
             )
             return [self._row_to_transaction(row) for row in cursor.fetchall()]
 
-    def get_spending_summary(
-        self, start_date: Optional[date] = None, end_date: Optional[date] = None
-    ) -> dict[str, float]:
+    def get_spending_summary(self, start_date: date | None = None, end_date: date | None = None) -> dict[str, float]:
         """Get spending totals by category."""
         query = """
             SELECT category, SUM(amount) as total
@@ -342,7 +332,10 @@ class Database:
         """Get all uploaded files."""
         with self._get_connection() as conn:
             cursor = conn.execute(
-                "SELECT id, filename, file_hash, source, transaction_count, uploaded_at FROM uploaded_files ORDER BY uploaded_at DESC"
+                """
+                SELECT id, filename, file_hash, source, transaction_count, uploaded_at
+                FROM uploaded_files ORDER BY uploaded_at DESC
+                """
             )
             return [
                 UploadedFile(
@@ -381,4 +374,3 @@ class Database:
 
 # Global database instance
 db = Database()
-

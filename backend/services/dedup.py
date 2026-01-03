@@ -19,11 +19,10 @@ def compute_transaction_hash(
 ) -> str:
     """
     Compute a unique hash for a transaction.
-    
+
     This hash is used to detect duplicate transactions even across
     different file uploads.
     """
     # Normalize the data for consistent hashing
     normalized = f"{source.value}|{txn_date.isoformat()}|{description.strip().lower()}|{amount:.2f}"
     return hashlib.sha256(normalized.encode()).hexdigest()
-

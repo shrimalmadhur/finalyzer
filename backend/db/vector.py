@@ -1,7 +1,5 @@
 """ChromaDB vector store for semantic search over transactions."""
 
-from typing import Optional
-
 import chromadb
 from chromadb.config import Settings as ChromaSettings
 from litellm import aembedding
@@ -15,13 +13,13 @@ class VectorStore:
 
     def __init__(self):
         settings.ensure_directories()
-        
+
         # Initialize ChromaDB with persistent storage
         self._client = chromadb.PersistentClient(
             path=str(settings.chroma_path),
             settings=ChromaSettings(anonymized_telemetry=False),
         )
-        
+
         # Get or create the transactions collection
         self._collection = self._client.get_or_create_collection(
             name="transactions",
@@ -32,10 +30,10 @@ class VectorStore:
         """Add a transaction to the vector store."""
         # Create embedding text from transaction details
         embed_text = self._create_embed_text(transaction)
-        
+
         # Generate embedding
         embedding = await self._get_embedding(embed_text)
-        
+
         if embedding:
             self._collection.upsert(
                 ids=[str(transaction.id)],
@@ -57,13 +55,13 @@ class VectorStore:
         """Add multiple transactions to the vector store."""
         if not transactions:
             return
-        
+
         # Create embedding texts
         embed_texts = [self._create_embed_text(txn) for txn in transactions]
-        
+
         # Generate embeddings in batch
         embeddings = await self._get_embeddings_batch(embed_texts)
-        
+
         if embeddings and len(embeddings) == len(transactions):
             self._collection.upsert(
                 ids=[str(txn.id) for txn in transactions],
@@ -86,24 +84,24 @@ class VectorStore:
         self,
         query: str,
         n_results: int = 20,
-        category_filter: Optional[str] = None,
+        category_filter: str | None = None,
     ) -> list[dict]:
         """
         Search for transactions semantically similar to the query.
-        
+
         Returns a list of results with transaction IDs and metadata.
         """
         # Generate query embedding
         query_embedding = await self._get_embedding(query)
-        
+
         if not query_embedding:
             return []
-        
+
         # Build where filter if category specified
         where_filter = None
         if category_filter:
             where_filter = {"category": category_filter}
-        
+
         # Search
         results = self._collection.query(
             query_embeddings=[query_embedding],
@@ -111,7 +109,7 @@ class VectorStore:
             where=where_filter,
             include=["documents", "metadatas", "distances"],
         )
-        
+
         # Format results
         formatted = []
         if results["ids"] and results["ids"][0]:
@@ -124,7 +122,7 @@ class VectorStore:
                         "distance": results["distances"][0][i] if results["distances"] else None,
                     }
                 )
-        
+
         return formatted
 
     def get_collection_count(self) -> int:
@@ -140,7 +138,7 @@ class VectorStore:
             base += f" | Tags: {tags_str}"
         return base
 
-    async def _get_embedding(self, text: str) -> Optional[list[float]]:
+    async def _get_embedding(self, text: str) -> list[float] | None:
         """Get embedding for a single text."""
         try:
             if settings.llm_provider == "openai":
@@ -155,13 +153,13 @@ class VectorStore:
                     input=[text],
                     api_base=settings.ollama_host,
                 )
-            
+
             return response.data[0]["embedding"]
         except Exception as e:
             print(f"Embedding error: {e}")
             return None
 
-    async def _get_embeddings_batch(self, texts: list[str]) -> Optional[list[list[float]]]:
+    async def _get_embeddings_batch(self, texts: list[str]) -> list[list[float]] | None:
         """Get embeddings for multiple texts."""
         try:
             if settings.llm_provider == "openai":
@@ -176,7 +174,7 @@ class VectorStore:
                     input=texts,
                     api_base=settings.ollama_host,
                 )
-            
+
             return [item["embedding"] for item in response.data]
         except Exception as e:
             print(f"Batch embedding error: {e}")
@@ -185,4 +183,3 @@ class VectorStore:
 
 # Global vector store instance
 vector_store = VectorStore()
-

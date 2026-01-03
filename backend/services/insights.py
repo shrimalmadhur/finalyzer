@@ -1,9 +1,8 @@
 """Spending insights service for auto-generated financial analysis."""
 
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import Optional
-from collections import defaultdict
 
 from backend.db.sqlite import db
 from backend.models import Transaction, TransactionCategory
@@ -12,30 +11,37 @@ from backend.models import Transaction, TransactionCategory
 @dataclass
 class SpendingInsight:
     """A single spending insight."""
+
     type: str  # "increase", "decrease", "anomaly", "subscription", "merchant", "tip"
     title: str
     description: str
-    amount: Optional[float] = None
-    percent_change: Optional[float] = None
-    category: Optional[str] = None
-    merchant: Optional[str] = None
+    amount: float | None = None
+    percent_change: float | None = None
+    category: str | None = None
+    merchant: str | None = None
     severity: str = "info"  # "info", "warning", "positive"
 
 
 @dataclass
 class InsightsReport:
     """Collection of spending insights for a period."""
+
     period_start: date
     period_end: date
     total_spending: float
     total_transactions: int
     insights: list[SpendingInsight]
+    top_categories: list[tuple[str, float]] = None  # type: ignore[assignment]
+    monthly_trend: list[tuple[str, float]] = None  # type: ignore[assignment]
+
+    def __post_init__(self) -> None:
+        if self.top_categories is None:
+            self.top_categories = []
+        if self.monthly_trend is None:
+            self.monthly_trend = []
 
 
-def generate_insights(
-    year: Optional[int] = None,
-    compare_to_previous: bool = True
-) -> InsightsReport:
+def generate_insights(year: int | None = None, compare_to_previous: bool = True) -> InsightsReport:
     """
     Generate spending insights for a given period.
 
@@ -57,11 +63,7 @@ def generate_insights(
         end_date = today
 
     # Get transactions for the period
-    transactions = db.get_all_transactions(
-        start_date=start_date,
-        end_date=end_date,
-        limit=10000
-    )
+    transactions = db.get_all_transactions(start_date=start_date, end_date=end_date, limit=10000)
 
     if not transactions:
         return InsightsReport(
@@ -69,7 +71,7 @@ def generate_insights(
             period_end=end_date,
             total_spending=0,
             total_transactions=0,
-            insights=[]
+            insights=[],
         )
 
     insights: list[SpendingInsight] = []
@@ -95,7 +97,7 @@ def generate_insights(
         period_end=end_date,
         total_spending=total_spending,
         total_transactions=total_transactions,
-        insights=insights[:15]  # Limit to top 15 insights
+        insights=insights[:15],  # Limit to top 15 insights
     )
 
 
@@ -109,11 +111,7 @@ def generate_monthly_insights(year: int, month: int) -> InsightsReport:
         end_date = date(year, month + 1, 1) - timedelta(days=1)
 
     # Get current month transactions
-    current_txns = db.get_all_transactions(
-        start_date=start_date,
-        end_date=end_date,
-        limit=5000
-    )
+    current_txns = db.get_all_transactions(start_date=start_date, end_date=end_date, limit=5000)
 
     # Previous month period
     if month == 1:
@@ -123,11 +121,7 @@ def generate_monthly_insights(year: int, month: int) -> InsightsReport:
         prev_start = date(year, month - 1, 1)
         prev_end = start_date - timedelta(days=1)
 
-    prev_txns = db.get_all_transactions(
-        start_date=prev_start,
-        end_date=prev_end,
-        limit=5000
-    )
+    prev_txns = db.get_all_transactions(start_date=prev_start, end_date=prev_end, limit=5000)
 
     insights: list[SpendingInsight] = []
 
@@ -137,7 +131,7 @@ def generate_monthly_insights(year: int, month: int) -> InsightsReport:
             period_end=end_date,
             total_spending=0,
             total_transactions=0,
-            insights=[]
+            insights=[],
         )
 
     total_spending = sum(abs(t.amount) for t in current_txns if t.amount < 0)
@@ -152,23 +146,27 @@ def generate_monthly_insights(year: int, month: int) -> InsightsReport:
 
             if abs(pct_change) >= 10:
                 if change > 0:
-                    insights.append(SpendingInsight(
-                        type="increase",
-                        title="Spending Increased",
-                        description=f"You spent ${change:.2f} more this month ({pct_change:+.0f}%) compared to last month.",
-                        amount=change,
-                        percent_change=pct_change,
-                        severity="warning" if pct_change > 25 else "info"
-                    ))
+                    insights.append(
+                        SpendingInsight(
+                            type="increase",
+                            title="Spending Increased",
+                            description=f"You spent ${change:.2f} more this month ({pct_change:+.0f}%) compared to last month.",
+                            amount=change,
+                            percent_change=pct_change,
+                            severity="warning" if pct_change > 25 else "info",
+                        )
+                    )
                 else:
-                    insights.append(SpendingInsight(
-                        type="decrease",
-                        title="Spending Decreased",
-                        description=f"You spent ${abs(change):.2f} less this month ({pct_change:.0f}%) compared to last month.",
-                        amount=abs(change),
-                        percent_change=pct_change,
-                        severity="positive"
-                    ))
+                    insights.append(
+                        SpendingInsight(
+                            type="decrease",
+                            title="Spending Decreased",
+                            description=f"You spent ${abs(change):.2f} less this month ({pct_change:.0f}%) compared to last month.",
+                            amount=abs(change),
+                            percent_change=pct_change,
+                            severity="positive",
+                        )
+                    )
 
     # Category-level insights for the month
     insights.extend(_compare_category_months(current_txns, prev_txns))
@@ -182,15 +180,12 @@ def generate_monthly_insights(year: int, month: int) -> InsightsReport:
         period_end=end_date,
         total_spending=total_spending,
         total_transactions=total_transactions,
-        insights=insights[:10]
+        insights=insights[:10],
     )
 
 
 def _compare_periods(
-    transactions: list[Transaction],
-    start_date: date,
-    end_date: date,
-    compare_to_previous: bool
+    transactions: list[Transaction], start_date: date, end_date: date, compare_to_previous: bool
 ) -> list[SpendingInsight]:
     """Compare current period to previous period."""
     insights = []
@@ -203,11 +198,7 @@ def _compare_periods(
     prev_end = start_date - timedelta(days=1)
     prev_start = prev_end - timedelta(days=period_length)
 
-    prev_txns = db.get_all_transactions(
-        start_date=prev_start,
-        end_date=prev_end,
-        limit=10000
-    )
+    prev_txns = db.get_all_transactions(start_date=prev_start, end_date=prev_end, limit=10000)
 
     if not prev_txns:
         return insights
@@ -221,32 +212,33 @@ def _compare_periods(
 
         if abs(pct_change) >= 15:
             if change > 0:
-                insights.append(SpendingInsight(
-                    type="increase",
-                    title="Overall Spending Up",
-                    description=f"Your total spending increased by ${change:.2f} ({pct_change:+.0f}%) compared to the previous period.",
-                    amount=change,
-                    percent_change=pct_change,
-                    severity="warning" if pct_change > 30 else "info"
-                ))
+                insights.append(
+                    SpendingInsight(
+                        type="increase",
+                        title="Overall Spending Up",
+                        description=f"Your total spending increased by ${change:.2f} ({pct_change:+.0f}%) compared to the previous period.",
+                        amount=change,
+                        percent_change=pct_change,
+                        severity="warning" if pct_change > 30 else "info",
+                    )
+                )
             else:
-                insights.append(SpendingInsight(
-                    type="decrease",
-                    title="Overall Spending Down",
-                    description=f"Your total spending decreased by ${abs(change):.2f} ({pct_change:.0f}%) compared to the previous period.",
-                    amount=abs(change),
-                    percent_change=pct_change,
-                    severity="positive"
-                ))
+                insights.append(
+                    SpendingInsight(
+                        type="decrease",
+                        title="Overall Spending Down",
+                        description=f"Your total spending decreased by ${abs(change):.2f} ({pct_change:.0f}%) compared to the previous period.",
+                        amount=abs(change),
+                        percent_change=pct_change,
+                        severity="positive",
+                    )
+                )
 
     return insights
 
 
 def _analyze_category_changes(
-    transactions: list[Transaction],
-    start_date: date,
-    end_date: date,
-    compare_to_previous: bool
+    transactions: list[Transaction], start_date: date, end_date: date, compare_to_previous: bool
 ) -> list[SpendingInsight]:
     """Analyze spending changes by category."""
     insights = []
@@ -265,11 +257,7 @@ def _analyze_category_changes(
     prev_end = start_date - timedelta(days=1)
     prev_start = prev_end - timedelta(days=period_length)
 
-    prev_txns = db.get_all_transactions(
-        start_date=prev_start,
-        end_date=prev_end,
-        limit=10000
-    )
+    prev_txns = db.get_all_transactions(start_date=prev_start, end_date=prev_end, limit=10000)
 
     prev_by_cat: dict[str, float] = defaultdict(float)
     for t in prev_txns:
@@ -285,33 +273,34 @@ def _analyze_category_changes(
             pct_change = (change / prev_amt) * 100
 
             if pct_change >= 30 and change >= 50:
-                insights.append(SpendingInsight(
-                    type="increase",
-                    title=f"{cat} Spending Up",
-                    description=f"You spent {pct_change:.0f}% more on {cat} (${change:.2f} increase).",
-                    amount=change,
-                    percent_change=pct_change,
-                    category=cat,
-                    severity="warning" if pct_change > 50 else "info"
-                ))
+                insights.append(
+                    SpendingInsight(
+                        type="increase",
+                        title=f"{cat} Spending Up",
+                        description=f"You spent {pct_change:.0f}% more on {cat} (${change:.2f} increase).",
+                        amount=change,
+                        percent_change=pct_change,
+                        category=cat,
+                        severity="warning" if pct_change > 50 else "info",
+                    )
+                )
             elif pct_change <= -25 and abs(change) >= 30:
-                insights.append(SpendingInsight(
-                    type="decrease",
-                    title=f"{cat} Spending Down",
-                    description=f"You spent {abs(pct_change):.0f}% less on {cat} (${abs(change):.2f} saved).",
-                    amount=abs(change),
-                    percent_change=pct_change,
-                    category=cat,
-                    severity="positive"
-                ))
+                insights.append(
+                    SpendingInsight(
+                        type="decrease",
+                        title=f"{cat} Spending Down",
+                        description=f"You spent {abs(pct_change):.0f}% less on {cat} (${abs(change):.2f} saved).",
+                        amount=abs(change),
+                        percent_change=pct_change,
+                        category=cat,
+                        severity="positive",
+                    )
+                )
 
     return insights[:5]  # Limit category insights
 
 
-def _compare_category_months(
-    current_txns: list[Transaction],
-    prev_txns: list[Transaction]
-) -> list[SpendingInsight]:
+def _compare_category_months(current_txns: list[Transaction], prev_txns: list[Transaction]) -> list[SpendingInsight]:
     """Compare categories between two months."""
     insights = []
 
@@ -341,25 +330,29 @@ def _compare_category_months(
     for cat, change, pct_change in changes[:3]:
         if abs(pct_change) >= 25:
             if change > 0:
-                insights.append(SpendingInsight(
-                    type="increase",
-                    title=f"{cat} Increased",
-                    description=f"{cat} spending up {pct_change:.0f}% this month.",
-                    amount=change,
-                    percent_change=pct_change,
-                    category=cat,
-                    severity="warning" if pct_change > 40 else "info"
-                ))
+                insights.append(
+                    SpendingInsight(
+                        type="increase",
+                        title=f"{cat} Increased",
+                        description=f"{cat} spending up {pct_change:.0f}% this month.",
+                        amount=change,
+                        percent_change=pct_change,
+                        category=cat,
+                        severity="warning" if pct_change > 40 else "info",
+                    )
+                )
             else:
-                insights.append(SpendingInsight(
-                    type="decrease",
-                    title=f"{cat} Decreased",
-                    description=f"{cat} spending down {abs(pct_change):.0f}% this month.",
-                    amount=abs(change),
-                    percent_change=pct_change,
-                    category=cat,
-                    severity="positive"
-                ))
+                insights.append(
+                    SpendingInsight(
+                        type="decrease",
+                        title=f"{cat} Decreased",
+                        description=f"{cat} spending down {abs(pct_change):.0f}% this month.",
+                        amount=abs(change),
+                        percent_change=pct_change,
+                        category=cat,
+                        severity="positive",
+                    )
+                )
 
     return insights
 
@@ -382,14 +375,16 @@ def _find_unusual_spending(transactions: list[Transaction]) -> list[SpendingInsi
     unusual.sort(key=lambda x: x[1], reverse=True)
 
     for txn, amount in unusual[:3]:
-        insights.append(SpendingInsight(
-            type="anomaly",
-            title="Large Transaction",
-            description=f"${amount:.2f} at {txn.description[:30]} on {txn.date.strftime('%b %d')} - {(amount/avg):.1f}x your average transaction.",
-            amount=amount,
-            merchant=txn.description[:30],
-            severity="info"
-        ))
+        insights.append(
+            SpendingInsight(
+                type="anomaly",
+                title="Large Transaction",
+                description=f"${amount:.2f} at {txn.description[:30]} on {txn.date.strftime('%b %d')} - {(amount / avg):.1f}x your average transaction.",
+                amount=amount,
+                merchant=txn.description[:30],
+                severity="info",
+            )
+        )
 
     return insights
 
@@ -423,36 +418,37 @@ def _analyze_subscriptions(transactions: list[Transaction]) -> list[SpendingInsi
             if len(set(amounts)) > 1:
                 min_amt, max_amt = min(amounts), max(amounts)
                 if max_amt > min_amt * 1.1:  # 10% price increase
-                    insights.append(SpendingInsight(
-                        type="subscription",
-                        title=f"Price Change: {merchant.title()}",
-                        description=f"Your {merchant.title()} subscription changed from ${min_amt:.2f} to ${max_amt:.2f}.",
-                        amount=max_amt - min_amt,
-                        percent_change=((max_amt - min_amt) / min_amt) * 100,
-                        merchant=merchant.title(),
-                        severity="info"
-                    ))
+                    insights.append(
+                        SpendingInsight(
+                            type="subscription",
+                            title=f"Price Change: {merchant.title()}",
+                            description=f"Your {merchant.title()} subscription changed from ${min_amt:.2f} to ${max_amt:.2f}.",
+                            amount=max_amt - min_amt,
+                            percent_change=((max_amt - min_amt) / min_amt) * 100,
+                            merchant=merchant.title(),
+                            severity="info",
+                        )
+                    )
 
         # Estimate monthly cost
         total_monthly += sum(abs(t.amount) for t in txns) / max(1, len(set(t.date.month for t in txns)))
 
     if total_monthly > 100:
-        insights.append(SpendingInsight(
-            type="subscription",
-            title="Subscription Summary",
-            description=f"You're spending approximately ${total_monthly:.2f}/month on subscriptions.",
-            amount=total_monthly,
-            severity="info"
-        ))
+        insights.append(
+            SpendingInsight(
+                type="subscription",
+                title="Subscription Summary",
+                description=f"You're spending approximately ${total_monthly:.2f}/month on subscriptions.",
+                amount=total_monthly,
+                severity="info",
+            )
+        )
 
     return insights[:3]
 
 
 def _find_top_merchant_changes(
-    transactions: list[Transaction],
-    start_date: date,
-    end_date: date,
-    compare_to_previous: bool
+    transactions: list[Transaction], start_date: date, end_date: date, compare_to_previous: bool
 ) -> list[SpendingInsight]:
     """Find merchants where spending changed significantly."""
     insights = []
@@ -473,11 +469,7 @@ def _find_top_merchant_changes(
     prev_end = start_date - timedelta(days=1)
     prev_start = prev_end - timedelta(days=period_length)
 
-    prev_txns = db.get_all_transactions(
-        start_date=prev_start,
-        end_date=prev_end,
-        limit=10000
-    )
+    prev_txns = db.get_all_transactions(start_date=prev_start, end_date=prev_end, limit=10000)
 
     prev_merchants: dict[str, float] = defaultdict(float)
     for t in prev_txns:
@@ -501,33 +493,34 @@ def _find_top_merchant_changes(
     for merchant, change, pct_change in changes[:2]:
         merchant_display = merchant.title()[:15]
         if change > 0:
-            insights.append(SpendingInsight(
-                type="merchant",
-                title=f"More at {merchant_display}",
-                description=f"You spent {pct_change:.0f}% more at {merchant_display} (+${change:.2f}).",
-                amount=change,
-                percent_change=pct_change,
-                merchant=merchant_display,
-                severity="info"
-            ))
+            insights.append(
+                SpendingInsight(
+                    type="merchant",
+                    title=f"More at {merchant_display}",
+                    description=f"You spent {pct_change:.0f}% more at {merchant_display} (+${change:.2f}).",
+                    amount=change,
+                    percent_change=pct_change,
+                    merchant=merchant_display,
+                    severity="info",
+                )
+            )
         else:
-            insights.append(SpendingInsight(
-                type="merchant",
-                title=f"Less at {merchant_display}",
-                description=f"You spent {abs(pct_change):.0f}% less at {merchant_display} (-${abs(change):.2f}).",
-                amount=abs(change),
-                percent_change=pct_change,
-                merchant=merchant_display,
-                severity="positive"
-            ))
+            insights.append(
+                SpendingInsight(
+                    type="merchant",
+                    title=f"Less at {merchant_display}",
+                    description=f"You spent {abs(pct_change):.0f}% less at {merchant_display} (-${abs(change):.2f}).",
+                    amount=abs(change),
+                    percent_change=pct_change,
+                    merchant=merchant_display,
+                    severity="positive",
+                )
+            )
 
     return insights
 
 
-def _generate_spending_tips(
-    transactions: list[Transaction],
-    total_spending: float
-) -> list[SpendingInsight]:
+def _generate_spending_tips(transactions: list[Transaction], total_spending: float) -> list[SpendingInsight]:
     """Generate actionable spending tips based on patterns."""
     insights = []
 
@@ -543,43 +536,49 @@ def _generate_spending_tips(
     # Check Food & Dining percentage
     food_pct = (by_cat.get("Food & Dining", 0) / total_spending) * 100 if total_spending > 0 else 0
     if food_pct > 20:
-        insights.append(SpendingInsight(
-            type="tip",
-            title="Food Spending High",
-            description=f"Food & Dining is {food_pct:.0f}% of your spending. Consider cooking more at home or meal prepping.",
-            amount=by_cat.get("Food & Dining", 0),
-            category="Food & Dining",
-            severity="info"
-        ))
+        insights.append(
+            SpendingInsight(
+                type="tip",
+                title="Food Spending High",
+                description=f"Food & Dining is {food_pct:.0f}% of your spending. Consider cooking more at home or meal prepping.",
+                amount=by_cat.get("Food & Dining", 0),
+                category="Food & Dining",
+                severity="info",
+            )
+        )
 
     # Check Subscriptions
     sub_amt = by_cat.get("Subscriptions", 0)
     if sub_amt > 150:
-        insights.append(SpendingInsight(
-            type="tip",
-            title="Review Subscriptions",
-            description=f"You're spending ${sub_amt:.2f} on subscriptions. Consider auditing services you might not be using.",
-            amount=sub_amt,
-            category="Subscriptions",
-            severity="info"
-        ))
+        insights.append(
+            SpendingInsight(
+                type="tip",
+                title="Review Subscriptions",
+                description=f"You're spending ${sub_amt:.2f} on subscriptions. Consider auditing services you might not be using.",
+                amount=sub_amt,
+                category="Subscriptions",
+                severity="info",
+            )
+        )
 
     # Check Shopping
     shopping_pct = (by_cat.get("Shopping", 0) / total_spending) * 100 if total_spending > 0 else 0
     if shopping_pct > 25:
-        insights.append(SpendingInsight(
-            type="tip",
-            title="Shopping Spending High",
-            description=f"Shopping is {shopping_pct:.0f}% of your spending. Try a 24-hour rule before non-essential purchases.",
-            amount=by_cat.get("Shopping", 0),
-            category="Shopping",
-            severity="info"
-        ))
+        insights.append(
+            SpendingInsight(
+                type="tip",
+                title="Shopping Spending High",
+                description=f"Shopping is {shopping_pct:.0f}% of your spending. Try a 24-hour rule before non-essential purchases.",
+                amount=by_cat.get("Shopping", 0),
+                category="Shopping",
+                severity="info",
+            )
+        )
 
     return insights[:2]
 
 
-def get_quick_stats(year: Optional[int] = None) -> dict:
+def get_quick_stats(year: int | None = None) -> dict:
     """Get quick spending statistics for the dashboard."""
     today = date.today()
 
@@ -590,11 +589,7 @@ def get_quick_stats(year: Optional[int] = None) -> dict:
         start_date = date(today.year, 1, 1)
         end_date = today
 
-    transactions = db.get_all_transactions(
-        start_date=start_date,
-        end_date=end_date,
-        limit=10000
-    )
+    transactions = db.get_all_transactions(start_date=start_date, end_date=end_date, limit=10000)
 
     if not transactions:
         return {

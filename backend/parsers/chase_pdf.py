@@ -10,11 +10,11 @@ from backend.models import Transaction, TransactionSource
 from backend.parsers.validation import (
     ParseResult,
     ValidationError,
-    logger,
     log_parse_result,
-    validate_file_contents,
+    logger,
     validate_amount,
     validate_date,
+    validate_file_contents,
 )
 from backend.services.dedup import compute_transaction_hash
 
@@ -77,19 +77,17 @@ def _extract_year(text: str) -> int:
         r"(\d{4})\s+Statement",
         r"Opening/Closing Date.*?(\d{4})",
     ]
-    
+
     for pattern in year_patterns:
         match = re.search(pattern, text, re.IGNORECASE)
         if match:
             return int(match.group(1))
-    
+
     # Default to current year if not found
     return datetime.now().year
 
 
-def _extract_transactions(
-    text: str, year: int, file_hash: str, result: ParseResult
-) -> list[Transaction]:
+def _extract_transactions(text: str, year: int, file_hash: str, result: ParseResult) -> list[Transaction]:
     """Extract transactions from Chase PDF text."""
     transactions: list[Transaction] = []
 
@@ -166,9 +164,7 @@ def _extract_transactions(
             amount = -amount
 
             # Create transaction
-            txn_hash = compute_transaction_hash(
-                TransactionSource.CHASE_CREDIT, txn_date, description, amount
-            )
+            txn_hash = compute_transaction_hash(TransactionSource.CHASE_CREDIT, txn_date, description, amount)
 
             transaction = Transaction(
                 source=TransactionSource.CHASE_CREDIT,
@@ -224,4 +220,3 @@ def _parse_amount(amount_str: str) -> float:
     # Remove $ and commas
     cleaned = amount_str.replace("$", "").replace(",", "")
     return float(cleaned)
-

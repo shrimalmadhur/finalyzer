@@ -1,6 +1,5 @@
 """Configuration management for Finalyzer."""
 
-import os
 from pathlib import Path
 from typing import Literal
 
@@ -60,4 +59,3 @@ class Settings(BaseSettings):
 
 # Global settings instance
 settings = Settings()
-
