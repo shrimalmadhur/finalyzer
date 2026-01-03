@@ -1,14 +1,15 @@
 """Tests for the spending insights service."""
 
-import pytest
 import uuid
 from datetime import date
 from unittest.mock import patch
 
-from backend.models import Transaction, TransactionSource, TransactionCategory
+import pytest
+
+from backend.models import Transaction, TransactionCategory, TransactionSource
 from backend.services.insights import (
-    SpendingInsight,
     InsightsReport,
+    SpendingInsight,
     generate_insights,
     generate_monthly_insights,
     get_quick_stats,

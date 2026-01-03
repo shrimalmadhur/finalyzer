@@ -8,10 +8,8 @@ from backend.models import Transaction, TransactionSource
 from backend.parsers.validation import (
     ParseResult,
     ValidationError,
-    is_likely_payment,
-    logger,
     log_parse_result,
-    normalize_description,
+    logger,
     parse_amount_safe,
     validate_csv_contents,
     validate_date,
@@ -126,9 +124,7 @@ def parse_amex_csv(contents: bytes, file_hash: str) -> list[Transaction]:
                 continue
 
             # Create transaction
-            txn_hash = compute_transaction_hash(
-                TransactionSource.AMEX, txn_date, description, amount
-            )
+            txn_hash = compute_transaction_hash(TransactionSource.AMEX, txn_date, description, amount)
 
             transaction = Transaction(
                 source=TransactionSource.AMEX,
@@ -155,11 +151,11 @@ def parse_amex_csv(contents: bytes, file_hash: str) -> list[Transaction]:
 def _build_header_map(fieldnames: list[str]) -> dict[str, str]:
     """Build a mapping from standard field names to actual CSV headers."""
     header_map: dict[str, str] = {}
-    
+
     # Normalize and map headers
     for field in fieldnames:
         field_lower = field.lower().strip()
-        
+
         if "date" in field_lower:
             header_map["date"] = field
         elif "description" in field_lower or "merchant" in field_lower:
@@ -174,7 +170,7 @@ def _build_header_map(fieldnames: list[str]) -> dict[str, str]:
             header_map["card_member"] = field
         elif "account" in field_lower:
             header_map["account"] = field
-    
+
     return header_map
 
 
@@ -194,20 +190,20 @@ def _parse_date(date_str: str) -> datetime | None:
         "%d/%m/%Y",  # 15/01/2024
         "%m-%d-%Y",  # 01-15-2024
     ]
-    
+
     for fmt in formats:
         try:
             return datetime.strptime(date_str, fmt).date()
         except ValueError:
             continue
-    
+
     return None
 
 
 def _is_payment(description: str) -> bool:
     """Check if this is a credit card payment (not actual spending)."""
     description_lower = description.lower()
-    
+
     payment_keywords = [
         "payment received",
         "payment - thank you",
@@ -218,11 +214,11 @@ def _is_payment(description: str) -> bool:
         "ach payment",
         "mobile payment - thank you",
     ]
-    
+
     for keyword in payment_keywords:
         if keyword in description_lower:
             return True
-    
+
     return False
 
 
@@ -231,4 +227,3 @@ def _clean_description(description: str) -> str:
     # Remove extra whitespace
     description = " ".join(description.split())
     return description.strip()
-

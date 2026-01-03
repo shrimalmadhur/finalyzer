@@ -2,10 +2,8 @@
 
 import asyncio
 import json
-import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
 
 from litellm import acompletion
 
@@ -17,14 +15,15 @@ from backend.models import Transaction, TransactionCategory
 @dataclass
 class ProcessingJob:
     """Represents a background processing job."""
+
     file_hash: str
     filename: str
     total_transactions: int
     processed_transactions: int = 0
     status: str = "processing"  # processing, complete, error
     started_at: datetime = field(default_factory=datetime.now)
-    completed_at: Optional[datetime] = None
-    error_message: Optional[str] = None
+    completed_at: datetime | None = None
+    error_message: str | None = None
 
 
 # Global processing tracker (in production, use Redis or similar)
@@ -48,7 +47,7 @@ def update_processing_job(file_hash: str, processed: int) -> None:
         _processing_jobs[file_hash].processed_transactions = processed
 
 
-def complete_processing_job(file_hash: str, error: Optional[str] = None) -> None:
+def complete_processing_job(file_hash: str, error: str | None = None) -> None:
     """Mark a processing job as complete."""
     if file_hash in _processing_jobs:
         job = _processing_jobs[file_hash]
@@ -65,19 +64,21 @@ def get_processing_status() -> list[dict]:
     result = []
     for job in _processing_jobs.values():
         elapsed = (now - job.started_at).total_seconds()
-        result.append({
-            "file_hash": job.file_hash,
-            "filename": job.filename,
-            "total": job.total_transactions,
-            "processed": job.processed_transactions,
-            "status": job.status,
-            "elapsed_seconds": round(elapsed, 1),
-            "error": job.error_message,
-        })
+        result.append(
+            {
+                "file_hash": job.file_hash,
+                "filename": job.filename,
+                "total": job.total_transactions,
+                "processed": job.processed_transactions,
+                "status": job.status,
+                "elapsed_seconds": round(elapsed, 1),
+                "error": job.error_message,
+            }
+        )
     return result
 
 
-def get_job_for_file(file_hash: str) -> Optional[dict]:
+def get_job_for_file(file_hash: str) -> dict | None:
     """Get processing status for a specific file."""
     if file_hash in _processing_jobs:
         job = _processing_jobs[file_hash]
@@ -122,7 +123,7 @@ def _get_model_name() -> str:
         return f"ollama/{settings.ollama_model}"
 
 
-def _get_api_base() -> Optional[str]:
+def _get_api_base() -> str | None:
     """Get the API base URL for Ollama."""
     if settings.llm_provider == "ollama":
         return settings.ollama_host
@@ -160,81 +161,230 @@ def categorize_transactions_fast(transactions: list[Transaction]) -> None:
 # Known subscription services - these should always be categorized as Subscriptions
 KNOWN_SUBSCRIPTIONS = [
     # Streaming - Video
-    "netflix", "hulu", "disney+", "disney plus", "disneyplus",
-    "hbo max", "hbo", "max", "peacock", "paramount+", "paramount plus",
-    "prime video", "amazon prime video", "apple tv+", "apple tv",
-    "crunchyroll", "funimation", "showtime", "starz", "mubi", "criterion",
-    "curiosity stream", "discovery+", "espn+", "dazn", "fubo", "sling",
-    "youtube tv", "youtube premium",
-
+    "netflix",
+    "hulu",
+    "disney+",
+    "disney plus",
+    "disneyplus",
+    "hbo max",
+    "hbo",
+    "max",
+    "peacock",
+    "paramount+",
+    "paramount plus",
+    "prime video",
+    "amazon prime video",
+    "apple tv+",
+    "apple tv",
+    "crunchyroll",
+    "funimation",
+    "showtime",
+    "starz",
+    "mubi",
+    "criterion",
+    "curiosity stream",
+    "discovery+",
+    "espn+",
+    "dazn",
+    "fubo",
+    "sling",
+    "youtube tv",
+    "youtube premium",
     # Streaming - Music
-    "spotify", "apple music", "amazon music", "youtube music", "tidal",
-    "deezer", "pandora", "soundcloud", "audible", "podcasts",
-
+    "spotify",
+    "apple music",
+    "amazon music",
+    "youtube music",
+    "tidal",
+    "deezer",
+    "pandora",
+    "soundcloud",
+    "audible",
+    "podcasts",
     # Software/Cloud
-    "adobe", "creative cloud", "microsoft 365", "office 365", "microsoft office",
-    "dropbox", "google one", "google drive", "icloud", "box.com",
-    "github", "gitlab", "bitbucket", "notion", "evernote", "obsidian",
-    "slack", "zoom", "teams", "webex", "calendly",
-    "canva", "figma", "sketch", "invision", "miro",
-    "grammarly", "jasper", "copy.ai", "writesonic",
-    "1password", "lastpass", "bitwarden", "dashlane",
-    "nordvpn", "expressvpn", "surfshark", "protonvpn", "mullvad",
-    "protonmail", "tutanota", "hey.com",
-    "jetbrains", "webstorm", "intellij", "pycharm", "phpstorm",
-    "sublime text", "vs code", "cursor",
-
+    "adobe",
+    "creative cloud",
+    "microsoft 365",
+    "office 365",
+    "microsoft office",
+    "dropbox",
+    "google one",
+    "google drive",
+    "icloud",
+    "box.com",
+    "github",
+    "gitlab",
+    "bitbucket",
+    "notion",
+    "evernote",
+    "obsidian",
+    "slack",
+    "zoom",
+    "teams",
+    "webex",
+    "calendly",
+    "canva",
+    "figma",
+    "sketch",
+    "invision",
+    "miro",
+    "grammarly",
+    "jasper",
+    "copy.ai",
+    "writesonic",
+    "1password",
+    "lastpass",
+    "bitwarden",
+    "dashlane",
+    "nordvpn",
+    "expressvpn",
+    "surfshark",
+    "protonvpn",
+    "mullvad",
+    "protonmail",
+    "tutanota",
+    "hey.com",
+    "jetbrains",
+    "webstorm",
+    "intellij",
+    "pycharm",
+    "phpstorm",
+    "sublime text",
+    "vs code",
+    "cursor",
     # News/Reading
-    "new york times", "nytimes", "nyt", "washington post", "wapo",
-    "wsj", "wall street journal", "financial times", "economist",
-    "medium", "substack", "patreon", "kindle unlimited", "scribd",
-    "apple news", "google news", "reuters", "bloomberg",
-
+    "new york times",
+    "nytimes",
+    "nyt",
+    "washington post",
+    "wapo",
+    "wsj",
+    "wall street journal",
+    "financial times",
+    "economist",
+    "medium",
+    "substack",
+    "patreon",
+    "kindle unlimited",
+    "scribd",
+    "apple news",
+    "google news",
+    "reuters",
+    "bloomberg",
     # Fitness/Health
-    "peloton", "strava", "zwift", "fitbod", "strong",
-    "headspace", "calm", "ten percent", "waking up", "balance",
-    "noom", "weight watchers", "ww", "myfitnesspal", "lose it",
-    "whoop", "oura", "eight sleep",
-
+    "peloton",
+    "strava",
+    "zwift",
+    "fitbod",
+    "strong",
+    "headspace",
+    "calm",
+    "ten percent",
+    "waking up",
+    "balance",
+    "noom",
+    "weight watchers",
+    "ww",
+    "myfitnesspal",
+    "lose it",
+    "whoop",
+    "oura",
+    "eight sleep",
     # Gaming
-    "xbox game pass", "xbox live", "playstation plus", "ps plus", "ps now",
-    "nintendo online", "nintendo switch online",
-    "ea play", "ea access", "ubisoft+", "ubisoft plus", "humble bundle",
-    "geforce now", "xbox cloud", "playstation now", "luna",
-    "twitch", "discord nitro",
-
+    "xbox game pass",
+    "xbox live",
+    "playstation plus",
+    "ps plus",
+    "ps now",
+    "nintendo online",
+    "nintendo switch online",
+    "ea play",
+    "ea access",
+    "ubisoft+",
+    "ubisoft plus",
+    "humble bundle",
+    "geforce now",
+    "xbox cloud",
+    "playstation now",
+    "luna",
+    "twitch",
+    "discord nitro",
     # AI/Tech
-    "openai", "chatgpt", "gpt plus", "claude", "anthropic",
-    "midjourney", "dall-e", "stable diffusion", "runway",
-    "copilot", "tabnine", "replit",
-
+    "openai",
+    "chatgpt",
+    "gpt plus",
+    "claude",
+    "anthropic",
+    "midjourney",
+    "dall-e",
+    "stable diffusion",
+    "runway",
+    "copilot",
+    "tabnine",
+    "replit",
     # Education
-    "duolingo", "babbel", "rosetta stone",
-    "coursera", "udemy", "skillshare", "masterclass", "linkedin learning",
-    "brilliant", "khan academy", "codecademy",
-
+    "duolingo",
+    "babbel",
+    "rosetta stone",
+    "coursera",
+    "udemy",
+    "skillshare",
+    "masterclass",
+    "linkedin learning",
+    "brilliant",
+    "khan academy",
+    "codecademy",
     # Storage/Backup
-    "backblaze", "carbonite", "idrive", "crashplan",
-    "wasabi", "b2 cloud",
-
+    "backblaze",
+    "carbonite",
+    "idrive",
+    "crashplan",
+    "wasabi",
+    "b2 cloud",
     # Dating/Social
-    "tinder", "bumble", "hinge", "match.com", "okcupid", "eharmony",
-
+    "tinder",
+    "bumble",
+    "hinge",
+    "match.com",
+    "okcupid",
+    "eharmony",
     # Productivity
-    "todoist", "asana", "monday.com", "clickup", "linear", "jira",
-    "trello", "airtable", "coda", "roam research",
-
+    "todoist",
+    "asana",
+    "monday.com",
+    "clickup",
+    "linear",
+    "jira",
+    "trello",
+    "airtable",
+    "coda",
+    "roam research",
     # Finance
-    "mint", "ynab", "personal capital", "quicken", "quickbooks",
-
+    "mint",
+    "ynab",
+    "personal capital",
+    "quicken",
+    "quickbooks",
     # Domain/Hosting
-    "godaddy", "namecheap", "cloudflare", "vercel", "netlify", "heroku",
-    "digitalocean", "linode", "aws", "amazon web services",
-    "google cloud", "azure",
-
+    "godaddy",
+    "namecheap",
+    "cloudflare",
+    "vercel",
+    "netlify",
+    "heroku",
+    "digitalocean",
+    "linode",
+    "aws",
+    "amazon web services",
+    "google cloud",
+    "azure",
     # Other recurring
-    "costco membership", "amazon prime", "sam's club", "bj's",
-    "aaa", "roadside",
+    "costco membership",
+    "amazon prime",
+    "sam's club",
+    "bj's",
+    "aaa",
+    "roadside",
 ]
 
 
@@ -255,7 +405,6 @@ KNOWN_MERCHANT_CATEGORIES: dict[str, TransactionCategory] = {
     "in-n-out": TransactionCategory.FOOD_DINING,
     "shake shack": TransactionCategory.FOOD_DINING,
     "jack in the box": TransactionCategory.FOOD_DINING,
-
     # Food & Dining - Fast Casual
     "chipotle": TransactionCategory.FOOD_DINING,
     "panera": TransactionCategory.FOOD_DINING,
@@ -272,7 +421,6 @@ KNOWN_MERCHANT_CATEGORIES: dict[str, TransactionCategory] = {
     "potbelly": TransactionCategory.FOOD_DINING,
     "zaxby": TransactionCategory.FOOD_DINING,
     "raising cane": TransactionCategory.FOOD_DINING,
-
     # Food & Dining - Coffee/Cafe
     "starbucks": TransactionCategory.FOOD_DINING,
     "dunkin": TransactionCategory.FOOD_DINING,
@@ -283,7 +431,6 @@ KNOWN_MERCHANT_CATEGORIES: dict[str, TransactionCategory] = {
     "coffee bean": TransactionCategory.FOOD_DINING,
     "caribou coffee": TransactionCategory.FOOD_DINING,
     "tim horton": TransactionCategory.FOOD_DINING,
-
     # Food & Dining - Delivery
     "doordash": TransactionCategory.FOOD_DINING,
     "uber eats": TransactionCategory.FOOD_DINING,
@@ -292,7 +439,6 @@ KNOWN_MERCHANT_CATEGORIES: dict[str, TransactionCategory] = {
     "seamless": TransactionCategory.FOOD_DINING,
     "caviar": TransactionCategory.FOOD_DINING,
     "gopuff": TransactionCategory.FOOD_DINING,
-
     # Groceries
     "whole foods": TransactionCategory.GROCERIES,
     "trader joe": TransactionCategory.GROCERIES,
@@ -310,7 +456,6 @@ KNOWN_MERCHANT_CATEGORIES: dict[str, TransactionCategory] = {
     "sprouts": TransactionCategory.GROCERIES,
     "fresh market": TransactionCategory.GROCERIES,
     "instacart": TransactionCategory.GROCERIES,
-
     # Transportation - Rideshare
     "uber": TransactionCategory.TRANSPORTATION,
     "lyft": TransactionCategory.TRANSPORTATION,
@@ -319,7 +464,6 @@ KNOWN_MERCHANT_CATEGORIES: dict[str, TransactionCategory] = {
     "gojek": TransactionCategory.TRANSPORTATION,
     "via": TransactionCategory.TRANSPORTATION,
     "curb": TransactionCategory.TRANSPORTATION,
-
     # Travel - Airlines
     "delta air": TransactionCategory.TRAVEL,
     "united air": TransactionCategory.TRAVEL,
@@ -339,7 +483,6 @@ KNOWN_MERCHANT_CATEGORIES: dict[str, TransactionCategory] = {
     "klm": TransactionCategory.TRAVEL,
     "qatar air": TransactionCategory.TRAVEL,
     "singapore air": TransactionCategory.TRAVEL,
-
     # Travel - Hotels
     "marriott": TransactionCategory.TRAVEL,
     "hilton": TransactionCategory.TRAVEL,
@@ -354,7 +497,6 @@ KNOWN_MERCHANT_CATEGORIES: dict[str, TransactionCategory] = {
     "booking.com": TransactionCategory.TRAVEL,
     "expedia": TransactionCategory.TRAVEL,
     "hotels.com": TransactionCategory.TRAVEL,
-
     # Travel - Car Rental
     "hertz": TransactionCategory.TRAVEL,
     "enterprise": TransactionCategory.TRAVEL,
@@ -364,7 +506,6 @@ KNOWN_MERCHANT_CATEGORIES: dict[str, TransactionCategory] = {
     "dollar rent": TransactionCategory.TRAVEL,
     "sixt": TransactionCategory.TRAVEL,
     "turo": TransactionCategory.TRAVEL,
-
     # Gas
     "shell": TransactionCategory.GAS,
     "chevron": TransactionCategory.GAS,
@@ -383,13 +524,11 @@ KNOWN_MERCHANT_CATEGORIES: dict[str, TransactionCategory] = {
     "murphy usa": TransactionCategory.GAS,
     "costco gas": TransactionCategory.GAS,
     "sam's gas": TransactionCategory.GAS,
-
     # EV Charging
     "tesla supercharger": TransactionCategory.GAS,
     "chargepoint": TransactionCategory.GAS,
     "electrify america": TransactionCategory.GAS,
     "evgo": TransactionCategory.GAS,
-
     # Shopping - General
     "amazon": TransactionCategory.SHOPPING,
     "target": TransactionCategory.SHOPPING,
@@ -397,13 +536,11 @@ KNOWN_MERCHANT_CATEGORIES: dict[str, TransactionCategory] = {
     "costco": TransactionCategory.SHOPPING,
     "sam's club": TransactionCategory.SHOPPING,
     "bj's wholesale": TransactionCategory.SHOPPING,
-
     # Shopping - Electronics
     "best buy": TransactionCategory.SHOPPING,
     "apple store": TransactionCategory.SHOPPING,
     "micro center": TransactionCategory.SHOPPING,
     "b&h photo": TransactionCategory.SHOPPING,
-
     # Shopping - Home
     "home depot": TransactionCategory.SHOPPING,
     "lowes": TransactionCategory.SHOPPING,
@@ -415,7 +552,6 @@ KNOWN_MERCHANT_CATEGORIES: dict[str, TransactionCategory] = {
     "williams sonoma": TransactionCategory.SHOPPING,
     "restoration hardware": TransactionCategory.SHOPPING,
     "west elm": TransactionCategory.SHOPPING,
-
     # Shopping - Fashion
     "nordstrom": TransactionCategory.SHOPPING,
     "macys": TransactionCategory.SHOPPING,
@@ -434,12 +570,10 @@ KNOWN_MERCHANT_CATEGORIES: dict[str, TransactionCategory] = {
     "adidas": TransactionCategory.SHOPPING,
     "foot locker": TransactionCategory.SHOPPING,
     "finish line": TransactionCategory.SHOPPING,
-
     # Shopping - Beauty
     "sephora": TransactionCategory.SHOPPING,
     "ulta": TransactionCategory.SHOPPING,
     "bath & body": TransactionCategory.SHOPPING,
-
     # Health
     "cvs": TransactionCategory.HEALTH,
     "walgreens": TransactionCategory.HEALTH,
@@ -448,7 +582,6 @@ KNOWN_MERCHANT_CATEGORIES: dict[str, TransactionCategory] = {
     "quest diagnostic": TransactionCategory.HEALTH,
     "labcorp": TransactionCategory.HEALTH,
     "zocdoc": TransactionCategory.HEALTH,
-
     # Fitness (not subscription-based)
     "planet fitness": TransactionCategory.HEALTH,
     "equinox": TransactionCategory.HEALTH,
@@ -457,7 +590,6 @@ KNOWN_MERCHANT_CATEGORIES: dict[str, TransactionCategory] = {
     "24 hour fitness": TransactionCategory.HEALTH,
     "la fitness": TransactionCategory.HEALTH,
     "ymca": TransactionCategory.HEALTH,
-
     # Bills & Utilities
     "at&t": TransactionCategory.BILLS_UTILITIES,
     "verizon": TransactionCategory.BILLS_UTILITIES,
@@ -479,7 +611,6 @@ KNOWN_MERCHANT_CATEGORIES: dict[str, TransactionCategory] = {
     "state farm": TransactionCategory.BILLS_UTILITIES,
     "allstate": TransactionCategory.BILLS_UTILITIES,
     "progressive": TransactionCategory.BILLS_UTILITIES,
-
     # Transfer/Payment
     "venmo": TransactionCategory.TRANSFER,
     "paypal": TransactionCategory.TRANSFER,
@@ -487,7 +618,6 @@ KNOWN_MERCHANT_CATEGORIES: dict[str, TransactionCategory] = {
     "cash app": TransactionCategory.TRANSFER,
     "wire transfer": TransactionCategory.TRANSFER,
     "ach transfer": TransactionCategory.TRANSFER,
-
     # Entertainment
     "amc theatre": TransactionCategory.ENTERTAINMENT,
     "regal cinema": TransactionCategory.ENTERTAINMENT,
@@ -511,7 +641,7 @@ KNOWN_MERCHANT_CATEGORIES: dict[str, TransactionCategory] = {
 }
 
 
-def _check_known_subscription(description: str) -> Optional[TransactionCategory]:
+def _check_known_subscription(description: str) -> TransactionCategory | None:
     """Check if the transaction is a known subscription service."""
     desc_lower = description.lower()
 
@@ -522,7 +652,7 @@ def _check_known_subscription(description: str) -> Optional[TransactionCategory]
     return None
 
 
-def _check_known_merchant(description: str) -> Optional[TransactionCategory]:
+def _check_known_merchant(description: str) -> TransactionCategory | None:
     """Check if the transaction is from a known merchant and return its category."""
     desc_lower = description.lower()
 
@@ -533,7 +663,7 @@ def _check_known_merchant(description: str) -> Optional[TransactionCategory]:
     return None
 
 
-async def schedule_llm_categorization(transaction_ids: list[str], file_hash: Optional[str] = None) -> None:
+async def schedule_llm_categorization(transaction_ids: list[str], file_hash: str | None = None) -> None:
     """
     Categorize transactions by ID using LLM in batches.
     Updates the database directly.
@@ -576,7 +706,7 @@ async def schedule_llm_categorization(transaction_ids: list[str], file_hash: Opt
             if file_hash:
                 update_processing_job(file_hash, processed_count)
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             print(f"  Batch {batch_num} timeout, skipping...")
             processed_count += len(batch)
             if file_hash:
@@ -591,7 +721,7 @@ async def schedule_llm_categorization(transaction_ids: list[str], file_hash: Opt
         if i + batch_size < len(uncategorized):
             await asyncio.sleep(0.3)
 
-    print(f"LLM categorization complete")
+    print("LLM categorization complete")
 
 
 async def categorize_transactions(transactions: list[Transaction]) -> list[Transaction]:
@@ -623,8 +753,8 @@ async def categorize_transactions(transactions: list[Transaction]) -> list[Trans
         try:
             # Add timeout to prevent hanging
             await asyncio.wait_for(_categorize_batch(batch), timeout=30.0)
-        except asyncio.TimeoutError:
-            print(f"Categorization timeout for batch {i//batch_size + 1}, skipping...")
+        except TimeoutError:
+            print(f"Categorization timeout for batch {i // batch_size + 1}, skipping...")
         except Exception as e:
             # If LLM fails, keep transactions uncategorized
             print(f"Categorization error: {e}")
@@ -632,13 +762,12 @@ async def categorize_transactions(transactions: list[Transaction]) -> list[Trans
     return transactions
 
 
-def _map_raw_category(raw_category: str, description: str = "") -> Optional[TransactionCategory]:
+def _map_raw_category(raw_category: str, description: str = "") -> TransactionCategory | None:
     """Map raw category from bank statement to our categories."""
     if not raw_category:
         return None
 
     raw_lower = raw_category.lower()
-    desc_lower = description.lower() if description else ""
 
     # Special handling: "Entertainment" category but it's actually a subscription
     if "entertainment" in raw_lower:
@@ -721,8 +850,7 @@ async def _categorize_batch(transactions: list[Transaction]) -> list[Transaction
     """Categorize a batch of transactions."""
     # Build the prompt
     transaction_list = "\n".join(
-        f"{i+1}. {txn.description} (${abs(txn.amount):.2f})"
-        for i, txn in enumerate(transactions)
+        f"{i + 1}. {txn.description} (${abs(txn.amount):.2f})" for i, txn in enumerate(transactions)
     )
 
     prompt = f"""Categorize each of the following financial transactions into one of these categories:

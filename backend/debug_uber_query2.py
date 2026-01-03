@@ -2,9 +2,8 @@
 
 from backend.db.sqlite import db
 from backend.services.query_engine import (
-    _has_required_tags,
     _get_required_tags,
-    _extract_brand_keywords,
+    _has_required_tags,
 )
 
 
@@ -13,17 +12,17 @@ def debug_filtering():
     print("=" * 60)
     print("DEBUGGING FILTERING")
     print("=" * 60)
-    
+
     # Get all Uber transactions
     uber_txns = db.search_transactions("uber", limit=1000)
     uber_in_desc = [t for t in uber_txns if "uber" in t.description.lower()]
-    
+
     print(f"\nTotal Uber transactions in DB: {len(uber_in_desc)}")
-    
+
     # Test _has_required_tags on each
     required_tags = _get_required_tags("uber")
     print(f"Required tags for 'uber' query: {required_tags}")
-    
+
     # Count how many pass the filter
     passing = []
     failing = []
@@ -32,10 +31,10 @@ def debug_filtering():
             passing.append(txn)
         else:
             failing.append(txn)
-    
+
     print(f"\nPassing filter: {len(passing)}")
     print(f"Failing filter: {len(failing)}")
-    
+
     # Show some failing ones
     if failing:
         print("\nSample FAILING transactions:")
@@ -44,7 +43,7 @@ def debug_filtering():
             print(f"  Tags: {txn.tags}")
             print(f"  'uber' in description.lower(): {'uber' in txn.description.lower()}")
             print()
-    
+
     # Test the _has_required_tags function directly
     print("\nDirect test of _has_required_tags:")
     if failing:
@@ -52,7 +51,7 @@ def debug_filtering():
         print(f"Transaction: {txn.description}")
         print(f"Tags: {txn.tags}")
         print(f"Required tags: {required_tags}")
-        
+
         # Manual check
         desc_lower = txn.description.lower()
         print(f"Description lower: {desc_lower}")
@@ -63,4 +62,3 @@ def debug_filtering():
 
 if __name__ == "__main__":
     debug_filtering()
-

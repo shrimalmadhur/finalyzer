@@ -2,7 +2,6 @@
 
 from datetime import date
 from enum import Enum
-from typing import Optional
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -44,8 +43,8 @@ class Transaction(BaseModel):
     date: date
     description: str
     amount: float  # Negative for expenses, positive for credits/income
-    category: Optional[TransactionCategory] = None
-    raw_category: Optional[str] = None  # Original category from statement if any
+    category: TransactionCategory | None = None
+    raw_category: str | None = None  # Original category from statement if any
     tags: list[str] = Field(default_factory=list)  # LLM-generated tags for better search
 
     class Config:
@@ -61,7 +60,7 @@ class TransactionCreate(BaseModel):
     date: date
     description: str
     amount: float
-    raw_category: Optional[str] = None
+    raw_category: str | None = None
 
 
 class UploadedFile(BaseModel):
@@ -96,15 +95,15 @@ class QueryResponse(BaseModel):
 
     summary: str
     transactions: list[Transaction]
-    total_amount: Optional[float] = None
+    total_amount: float | None = None
 
 
 class SettingsUpdate(BaseModel):
     """Settings update request."""
 
-    llm_provider: Optional[str] = None
-    openai_api_key: Optional[str] = None
-    ollama_host: Optional[str] = None
+    llm_provider: str | None = None
+    openai_api_key: str | None = None
+    ollama_host: str | None = None
 
 
 class SettingsResponse(BaseModel):
@@ -113,4 +112,3 @@ class SettingsResponse(BaseModel):
     llm_provider: str
     ollama_host: str
     has_openai_key: bool
-

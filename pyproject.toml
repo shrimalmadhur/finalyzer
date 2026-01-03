@@ -34,10 +34,11 @@ packages = ["backend"]
 
 [tool.ruff]
 target-version = "py311"
-line-length = 100
+line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E501"]  # Line length handled by formatter
 
 [tool.mypy]
 python_version = "3.11"

@@ -1,10 +1,9 @@
 """Natural language query engine for transactions."""
 
+import hashlib
 import json
 import re
 from datetime import date, timedelta
-from typing import Optional
-import hashlib
 
 from litellm import acompletion
 
@@ -22,7 +21,7 @@ def _get_model_name() -> str:
         return f"ollama/{settings.ollama_model}"
 
 
-def _get_api_base() -> Optional[str]:
+def _get_api_base() -> str | None:
     """Get the API base URL for Ollama."""
     if settings.llm_provider == "ollama":
         return settings.ollama_host
@@ -34,9 +33,10 @@ _intent_cache: dict[str, tuple[dict, float]] = {}
 _CACHE_TTL = 3600  # 1 hour
 
 
-def _get_cached_intent(query: str) -> Optional[dict]:
+def _get_cached_intent(query: str) -> dict | None:
     """Get cached intent analysis if available and not expired."""
     import time
+
     cache_key = hashlib.md5(query.lower().strip().encode()).hexdigest()
     if cache_key in _intent_cache:
         intent, timestamp = _intent_cache[cache_key]
@@ -50,6 +50,7 @@ def _get_cached_intent(query: str) -> Optional[dict]:
 def _cache_intent(query: str, intent: dict) -> None:
     """Cache intent analysis result."""
     import time
+
     cache_key = hashlib.md5(query.lower().strip().encode()).hexdigest()
     _intent_cache[cache_key] = (intent, time.time())
     # Limit cache size
@@ -60,7 +61,7 @@ def _cache_intent(query: str, intent: dict) -> None:
             del _intent_cache[k]
 
 
-def parse_relative_date(query: str) -> tuple[Optional[date], Optional[date]]:
+def parse_relative_date(query: str) -> tuple[date | None, date | None]:
     """
     Parse relative date expressions from the query.
 
@@ -139,11 +140,30 @@ def parse_relative_date(query: str) -> tuple[Optional[date], Optional[date]]:
 
     # Month names with optional year: "in January", "in December 2024"
     month_names = {
-        "january": 1, "february": 2, "march": 3, "april": 4,
-        "may": 5, "june": 6, "july": 7, "august": 8,
-        "september": 9, "october": 10, "november": 11, "december": 12,
-        "jan": 1, "feb": 2, "mar": 3, "apr": 4, "jun": 6,
-        "jul": 7, "aug": 8, "sep": 9, "sept": 9, "oct": 10, "nov": 11, "dec": 12
+        "january": 1,
+        "february": 2,
+        "march": 3,
+        "april": 4,
+        "may": 5,
+        "june": 6,
+        "july": 7,
+        "august": 8,
+        "september": 9,
+        "october": 10,
+        "november": 11,
+        "december": 12,
+        "jan": 1,
+        "feb": 2,
+        "mar": 3,
+        "apr": 4,
+        "jun": 6,
+        "jul": 7,
+        "aug": 8,
+        "sep": 9,
+        "sept": 9,
+        "oct": 10,
+        "nov": 11,
+        "dec": 12,
     }
 
     for month_name, month_num in month_names.items():
@@ -348,12 +368,29 @@ async def _get_relevant_transactions(query: str, intent: dict) -> list[Transacti
     # (i.e., not generic category terms like "airlines", "restaurants", etc.)
     # This prevents category queries from being treated as brand queries
     generic_category_terms = {
-        'airline', 'airlines', 'flight', 'flights',
-        'restaurant', 'restaurants', 'food', 'dining',
-        'hotel', 'hotels', 'lodging', 'accommodation',
-        'grocery', 'groceries', 'supermarket',
-        'gas', 'fuel', 'transportation', 'rideshare',
-        'coffee', 'cafe', 'subscription', 'subscriptions'
+        "airline",
+        "airlines",
+        "flight",
+        "flights",
+        "restaurant",
+        "restaurants",
+        "food",
+        "dining",
+        "hotel",
+        "hotels",
+        "lodging",
+        "accommodation",
+        "grocery",
+        "groceries",
+        "supermarket",
+        "gas",
+        "fuel",
+        "transportation",
+        "rideshare",
+        "coffee",
+        "cafe",
+        "subscription",
+        "subscriptions",
     }
 
     merchant_search_terms = [t for t in search_terms if t.lower() not in generic_category_terms]
@@ -366,10 +403,10 @@ async def _get_relevant_transactions(query: str, intent: dict) -> list[Transacti
 
             # Add singular/plural variants for better matching
             # e.g., "sweetgreens" -> also try "sweetgreen"
-            if term.endswith('s') and len(term) > 3:
+            if term.endswith("s") and len(term) > 3:
                 search_variants.append(term[:-1])  # Remove trailing 's'
             else:
-                search_variants.append(term + 's')  # Add trailing 's'
+                search_variants.append(term + "s")  # Add trailing 's'
 
             term_found_matches = False
             for variant in search_variants:
@@ -475,33 +512,106 @@ def _extract_brand_keywords(query: str) -> list[str]:
     # Known brands to look for in queries (expanded list)
     brands = [
         # Rideshare
-        "uber", "lyft", "grab", "bolt", "gojek",
+        "uber",
+        "lyft",
+        "grab",
+        "bolt",
+        "gojek",
         # Food delivery
-        "doordash", "grubhub", "postmates", "ubereats", "instacart",
+        "doordash",
+        "grubhub",
+        "postmates",
+        "ubereats",
+        "instacart",
         # Coffee & food
-        "starbucks", "dunkin", "chipotle", "mcdonald", "chick-fil-a", "sweetgreen",
-        "panera", "subway", "wendy", "taco bell", "panda express",
+        "starbucks",
+        "dunkin",
+        "chipotle",
+        "mcdonald",
+        "chick-fil-a",
+        "sweetgreen",
+        "panera",
+        "subway",
+        "wendy",
+        "taco bell",
+        "panda express",
         # Retail & shopping
-        "amazon", "target", "walmart", "costco", "whole foods", "trader joe",
-        "best buy", "home depot", "lowes", "ikea", "nordstrom", "macys",
-        "sephora", "ulta", "cvs", "walgreens",
+        "amazon",
+        "target",
+        "walmart",
+        "costco",
+        "whole foods",
+        "trader joe",
+        "best buy",
+        "home depot",
+        "lowes",
+        "ikea",
+        "nordstrom",
+        "macys",
+        "sephora",
+        "ulta",
+        "cvs",
+        "walgreens",
         # Streaming & subscriptions
-        "netflix", "spotify", "hulu", "disney", "hbo", "apple tv", "peacock",
-        "youtube", "audible", "kindle",
+        "netflix",
+        "spotify",
+        "hulu",
+        "disney",
+        "hbo",
+        "apple tv",
+        "peacock",
+        "youtube",
+        "audible",
+        "kindle",
         # Travel & lodging
-        "airbnb", "vrbo", "marriott", "hilton", "hyatt", "expedia", "booking.com",
+        "airbnb",
+        "vrbo",
+        "marriott",
+        "hilton",
+        "hyatt",
+        "expedia",
+        "booking.com",
         # Airlines
-        "emirates", "alaska", "delta", "united", "southwest", "american airlines",
-        "jetblue", "spirit", "frontier", "hawaiian", "air canada", "british airways",
+        "emirates",
+        "alaska",
+        "delta",
+        "united",
+        "southwest",
+        "american airlines",
+        "jetblue",
+        "spirit",
+        "frontier",
+        "hawaiian",
+        "air canada",
+        "british airways",
         # Gas stations
-        "shell", "chevron", "exxon", "tesla", "bp", "arco",
+        "shell",
+        "chevron",
+        "exxon",
+        "tesla",
+        "bp",
+        "arco",
         # Tech & software
-        "apple", "google", "microsoft", "adobe", "github", "openai", "chatgpt",
-        "dropbox", "zoom", "slack",
+        "apple",
+        "google",
+        "microsoft",
+        "adobe",
+        "github",
+        "openai",
+        "chatgpt",
+        "dropbox",
+        "zoom",
+        "slack",
         # Health
-        "peloton", "planet fitness", "equinox",
+        "peloton",
+        "planet fitness",
+        "equinox",
         # Telecom
-        "at&t", "verizon", "t-mobile", "comcast", "xfinity",
+        "at&t",
+        "verizon",
+        "t-mobile",
+        "comcast",
+        "xfinity",
     ]
 
     found = []
@@ -529,7 +639,6 @@ def _get_required_tags(query: str) -> list[str]:
         "uber": ["uber"],
         "lyft": ["lyft"],
         "grab": ["grab"],
-
         # Specific airlines
         "emirates": ["airline"],
         "alaska air": ["airline"],
@@ -538,12 +647,10 @@ def _get_required_tags(query: str) -> list[str]:
         "southwest": ["airline"],
         "american airlines": ["airline"],
         "jetblue": ["airline"],
-
         # Specific coffee shops - use brand tag only for brand-specific searches
         "starbucks": ["starbucks"],
         "dunkin": ["dunkin"],
         "peets": ["peets"],
-
         # Specific stores
         "amazon": ["amazon"],
         "target": ["target"],
@@ -564,34 +671,27 @@ def _get_required_tags(query: str) -> list[str]:
         "flight": ["airline", "flight"],
         "flights": ["airline", "flight"],
         "plane": ["airline", "flight"],
-
         # Rideshare category (only when asking about rideshare in general)
         "rideshare": ["rideshare"],
         "ride share": ["rideshare"],
         "taxi": ["rideshare"],
-
         # Hotels category
         "hotel": ["hotel", "lodging", "accommodation"],
         "hotels": ["hotel", "lodging", "accommodation"],
         "lodging": ["hotel", "lodging", "accommodation"],
         "accommodation": ["hotel", "lodging", "accommodation"],
         "airbnb": ["airbnb", "accommodation"],
-
         # Coffee category
         "coffee": ["coffee"],
-
         # Subscriptions
         "subscription": ["subscription"],
         "subscriptions": ["subscription"],
-
         # Streaming
         "streaming": ["streaming"],
-
         # Groceries
         "grocery": ["groceries"],
         "groceries": ["groceries"],
         "supermarket": ["groceries", "supermarket"],
-
         # Food delivery
         "food delivery": ["delivery"],
         "delivery": ["delivery"],
@@ -625,11 +725,25 @@ def _has_required_tags(txn: Transaction, required_tags: list[str]) -> bool:
         # Pattern 2: Specific airline name followed by " AIR" or " AI" (common in statements)
         # e.g., "DELTA AIR LINES", "EMIRATES AI", "ALASKA AIR", "AIR-INDIA"
         airline_with_air = [
-            "delta air", "united air", "american air", "southwest air",
-            "alaska air", "emirates ai", "etihad air", "qatar air",
-            "air canada", "air france", "air india", "air-india", "air china",
-            "british air", "virgin air", "hawaiian air", "spirit air",
-            "frontier air", "norwegian air"
+            "delta air",
+            "united air",
+            "american air",
+            "southwest air",
+            "alaska air",
+            "emirates ai",
+            "etihad air",
+            "qatar air",
+            "air canada",
+            "air france",
+            "air india",
+            "air-india",
+            "air china",
+            "british air",
+            "virgin air",
+            "hawaiian air",
+            "spirit air",
+            "frontier air",
+            "norwegian air",
         ]
         if any(pattern in desc_lower for pattern in airline_with_air):
             return True
@@ -766,11 +880,7 @@ async def _generate_summary(query: str, transactions: list[Transaction], stats: 
     # Category breakdown - prioritize for "biggest expenses" type queries
     if by_category and (is_biggest_query or is_category_query or not is_source_query):
         # Sort categories by spending (highest first)
-        sorted_categories = sorted(
-            by_category.items(),
-            key=lambda x: x[1]["spending"],
-            reverse=True
-        )
+        sorted_categories = sorted(by_category.items(), key=lambda x: x[1]["spending"], reverse=True)
         # Include top categories
         for cat, data in sorted_categories[:5]:
             if data["spending"] > 0:
@@ -834,7 +944,9 @@ Keep it concise and friendly."""
         print(f"Summary generation failed: {e}")
         # Fallback to basic template
         if len(by_year) > 1:
-            year_parts = [f"{y}: {d['count']} transactions, ${d['spending']:.2f}"
-                         for y, d in sorted(by_year.items(), reverse=True)]
-            return f"Here's the breakdown: " + " | ".join(year_parts)
+            year_parts = [
+                f"{y}: {d['count']} transactions, ${d['spending']:.2f}"
+                for y, d in sorted(by_year.items(), reverse=True)
+            ]
+            return "Here's the breakdown: " + " | ".join(year_parts)
         return f"Found {total_count} transactions totaling ${total_spending:.2f} in spending."
