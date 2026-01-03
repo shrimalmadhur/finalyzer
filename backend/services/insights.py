@@ -31,6 +31,14 @@ class InsightsReport:
     total_spending: float
     total_transactions: int
     insights: list[SpendingInsight]
+    top_categories: list[tuple[str, float]] = None  # type: ignore[assignment]
+    monthly_trend: list[tuple[str, float]] = None  # type: ignore[assignment]
+
+    def __post_init__(self) -> None:
+        if self.top_categories is None:
+            self.top_categories = []
+        if self.monthly_trend is None:
+            self.monthly_trend = []
 
 
 def generate_insights(year: int | None = None, compare_to_previous: bool = True) -> InsightsReport:

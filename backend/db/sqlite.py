@@ -191,7 +191,7 @@ class Database:
             return []
         # Build OR conditions for each tag
         conditions = " OR ".join(["tags LIKE ?" for _ in tags])
-        params = [f"%{tag}%" for tag in tags]
+        params: list[str | int] = [f"%{tag}%" for tag in tags]
         params.append(limit)
 
         with self._get_connection() as conn:

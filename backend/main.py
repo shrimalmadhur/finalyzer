@@ -377,7 +377,7 @@ async def get_monthly_by_category(year: int | None = None):
             monthly_cat[month_key][cat] += abs(t.amount)
 
     # Get all categories
-    all_categories = set()
+    all_categories: set[str] = set()
     for cats in monthly_cat.values():
         all_categories.update(cats.keys())
 
