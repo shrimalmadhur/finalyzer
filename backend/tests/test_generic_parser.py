@@ -1,20 +1,21 @@
 """Tests for the generic LLM-based transaction parser."""
 
-import pytest
 from datetime import date
-from uuid import UUID
 from unittest.mock import AsyncMock, patch
+from uuid import UUID
 
+import pytest
+
+from backend.models import TransactionCategory, TransactionSource
+from backend.parsers.document_types import DocumentMetadata, RawTransaction
 from backend.parsers.generic import (
-    parse_generic,
-    _detect_file_type,
     _create_transaction,
     _deduplicate_within_file,
+    _detect_file_type,
     _validate_transactions,
+    parse_generic,
 )
-from backend.parsers.document_types import DocumentMetadata, RawTransaction
 from backend.parsers.llm_client import ParsingError
-from backend.models import Transaction, TransactionSource, TransactionCategory
 from backend.services.dedup import compute_file_hash
 
 # Test constants

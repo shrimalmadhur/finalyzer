@@ -2,7 +2,6 @@
 
 import asyncio
 from datetime import datetime
-from typing import Dict, Optional
 
 from backend.config import settings
 from backend.db.sqlite import db
@@ -14,22 +13,28 @@ from backend.models import (
     UploadResponse,
 )
 from backend.parsers.amex_csv import parse_amex_csv
-from backend.parsers.amex_year_end_pdf import is_amex_year_end_summary, parse_amex_year_end_pdf
+from backend.parsers.amex_year_end_pdf import (
+    is_amex_year_end_summary,
+    parse_amex_year_end_pdf,
+)
 from backend.parsers.chase_csv import parse_chase_csv
 from backend.parsers.chase_pdf import parse_chase_pdf
-from backend.parsers.chase_report_pdf import is_chase_spending_report, parse_chase_report_pdf
+from backend.parsers.chase_report_pdf import (
+    is_chase_spending_report,
+    parse_chase_report_pdf,
+)
 from backend.parsers.coinbase_csv import parse_coinbase_csv
-from backend.parsers.coinbase_pdf import parse_coinbase_pdf, is_coinbase_pdf
+from backend.parsers.coinbase_pdf import is_coinbase_pdf, parse_coinbase_pdf
 from backend.parsers.generic import parse_generic
-from backend.services.dedup import compute_file_hash
 from backend.services.categorizer import (
     categorize_transactions_fast,
+    complete_processing_job,
     schedule_llm_categorization,
     start_processing_job,
-    complete_processing_job,
 )
+from backend.services.dedup import compute_file_hash
+from backend.services.progress import clear_progress, update_progress
 from backend.services.tagger import schedule_llm_tagging, tag_transactions_fast
-from backend.services.progress import update_progress, get_progress, clear_progress
 
 
 def detect_source(filename: str, contents: bytes) -> TransactionSource:
@@ -122,7 +127,7 @@ async def process_upload(filename: str, contents: bytes) -> UploadResponse:
 
         # Return immediately with processing status
         print(f"✅ File uploaded: {filename} - Processing in background...")
-        print(f"⏳ This may take 1-2 minutes for large files. Watch the backend logs for progress.")
+        print("⏳ This may take 1-2 minutes for large files. Watch the backend logs for progress.")
 
         return UploadResponse(
             filename=filename,
@@ -227,7 +232,7 @@ async def process_upload(filename: str, contents: bytes) -> UploadResponse:
 async def _background_generic_parsing(filename: str, contents: bytes, file_hash: str) -> None:
     """Background task to parse file with generic LLM parser and add transactions to database."""
     try:
-        print(f"\n" + "=" * 80)
+        print("\n" + "=" * 80)
         print(f"🚀 BACKGROUND PROCESSING STARTED: {filename}")
         print("=" * 80)
 
@@ -251,12 +256,12 @@ async def _background_generic_parsing(filename: str, contents: bytes, file_hash:
         update_progress(file_hash, "processing", 60, f"Extracted {len(transactions)} transactions")
 
         # Fast categorization: use raw_category from source, no LLM yet
-        print(f"🏷️  Running fast categorization...")
+        print("🏷️  Running fast categorization...")
         update_progress(file_hash, "processing", 70, "Categorizing transactions...")
         categorize_transactions_fast(transactions)
 
         # Fast tagging: use known merchant patterns, no LLM yet
-        print(f"🔖 Running fast tagging...")
+        print("🔖 Running fast tagging...")
         update_progress(file_hash, "processing", 75, "Tagging merchants...")
         tag_transactions_fast(transactions)
 
@@ -276,7 +281,7 @@ async def _background_generic_parsing(filename: str, contents: bytes, file_hash:
                 uploaded_at=datetime.now().isoformat(),
             )
             db.add_uploaded_file(uploaded_file)
-            print(f"📝 File record saved to database")
+            print("📝 File record saved to database")
 
             # Count how many still need LLM processing
             uncategorized = sum(1 for t in transactions if not t.category)
@@ -289,7 +294,7 @@ async def _background_generic_parsing(filename: str, contents: bytes, file_hash:
                 start_processing_job(file_hash, filename, needs_processing)
 
             # Continue with categorization, tagging, and vector store
-            print(f"🔄 Starting background LLM categorization & tagging...")
+            print("🔄 Starting background LLM categorization & tagging...")
             update_progress(file_hash, "processing", 90, "Running AI categorization...")
             await _background_processing(transactions, file_hash)
 

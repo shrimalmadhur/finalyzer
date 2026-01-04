@@ -69,7 +69,7 @@ async def llm_extract_json(
                 timeout=timeout,
             )
 
-            print(f"      ✅ [llm_extract_json] Got LLM response")
+            print("      ✅ [llm_extract_json] Got LLM response")
             content = response.choices[0].message.content.strip()
 
             # Extract JSON from markdown code blocks if present
@@ -127,7 +127,7 @@ async def llm_extract_json(
                 else:
                     raise ParsingError(f"LLM response validation failed: {e}")
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.warning(f"LLM timeout (attempt {attempt + 1}/{max_retries})")
             if attempt < max_retries - 1:
                 wait_time = 2 ** attempt

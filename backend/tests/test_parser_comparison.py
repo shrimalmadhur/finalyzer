@@ -1,13 +1,14 @@
 """Compare generic parser output with existing parser output."""
 
-import pytest
 from datetime import date
 from unittest.mock import AsyncMock, patch
 
-from backend.parsers.generic import parse_generic
+import pytest
+
+from backend.models import TransactionSource
 from backend.parsers.amex_csv import parse_amex_csv
 from backend.parsers.document_types import DocumentMetadata, RawTransaction
-from backend.models import TransactionSource
+from backend.parsers.generic import parse_generic
 from backend.services.dedup import compute_file_hash
 
 
@@ -204,7 +205,7 @@ class TestFieldComparison:
         assert old_txn.description == new_txn.description
         assert old_txn.amount == new_txn.amount
         assert old_txn.tags == new_txn.tags == []
-        assert old_txn.category == new_txn.category == None
+        assert old_txn.category == new_txn.category is None
 
     @pytest.mark.asyncio
     async def test_transaction_hash_format_matches(self):

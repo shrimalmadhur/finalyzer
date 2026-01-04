@@ -1,14 +1,13 @@
 """Progress tracking for background uploads."""
 
 from datetime import datetime
-from typing import Dict, Optional
 
 
 # Global progress tracking for background uploads
-_upload_progress: Dict[str, Dict] = {}
+_upload_progress: dict[str, dict] = {}
 
 
-def update_progress(file_hash: str, status: str, progress: int, message: str, details: Optional[Dict] = None):
+def update_progress(file_hash: str, status: str, progress: int, message: str, details: dict | None = None):
     """Update upload progress for SSE streaming."""
     _upload_progress[file_hash] = {
         "status": status,  # "processing", "complete", "error"
@@ -20,7 +19,7 @@ def update_progress(file_hash: str, status: str, progress: int, message: str, de
     print(f"[PROGRESS] {file_hash[:8]}... → {progress}% - {message}")
 
 
-def get_progress(file_hash: str) -> Optional[Dict]:
+def get_progress(file_hash: str) -> dict | None:
     """Get current upload progress."""
     return _upload_progress.get(file_hash)
 
