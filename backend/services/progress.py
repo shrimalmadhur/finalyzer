@@ -2,7 +2,6 @@
 
 from datetime import datetime
 
-
 # Global progress tracking for background uploads
 _upload_progress: dict[str, dict] = {}
 

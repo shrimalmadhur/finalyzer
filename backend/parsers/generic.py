@@ -1,5 +1,6 @@
 """Generic LLM-based transaction parser for any PDF or CSV statement."""
 
+import asyncio
 import hashlib
 import logging
 import uuid
