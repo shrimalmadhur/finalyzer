@@ -2,6 +2,8 @@
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+import asyncio
 
 from backend.config import settings
 from backend.db.sqlite import db
@@ -13,6 +15,8 @@ from backend.models import (
     Transaction,
     UploadResponse,
 )
+from backend.services.upload import process_upload
+from backend.services.progress import get_progress
 from backend.services.query_engine import query_transactions
 from backend.services.upload import process_upload
 
@@ -35,6 +39,7 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup():
     """Initialize on startup."""
+    settings.log_config()  # Show loaded configuration
     settings.ensure_directories()
 
 
@@ -67,6 +72,67 @@ async def upload_file(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing file: {str(e)}")
+
+
+@app.get("/upload/progress/{file_hash}")
+async def upload_progress(file_hash: str):
+    """
+    Server-Sent Events (SSE) endpoint for real-time upload progress.
+
+    Frontend can connect to this to receive progress updates during background processing.
+    """
+    import json
+
+    async def event_generator():
+        """Generate SSE events for upload progress."""
+        last_progress = None
+        last_keepalive = 0
+        max_wait_seconds = 600  # 10 minutes max (for long categorization/tagging)
+
+        try:
+            for elapsed in range(max_wait_seconds * 2):  # Poll every 0.5s
+                progress = get_progress(file_hash)
+
+                if progress:
+                    # Send update if progress changed (not just status)
+                    if progress != last_progress:
+                        last_progress = progress
+                        # Format as SSE event
+                        yield f"data: {json.dumps(progress)}\n\n"
+                        last_keepalive = elapsed
+                        print(f"[SSE] Sent progress update: {progress['progress']}% - {progress['message']}")
+
+                    # Stop streaming if complete or error (after a small delay to ensure message is sent)
+                    if progress["status"] in ["complete", "error"]:
+                        print(f"[SSE] Processing {progress['status']}, sending final update and closing...")
+                        # Send one more time to ensure it's delivered
+                        yield f"data: {json.dumps(progress)}\n\n"
+                        await asyncio.sleep(0.5)  # Small delay to ensure message is sent
+                        break
+                else:
+                    # Send keepalive comment every 15 seconds if no progress
+                    if elapsed - last_keepalive > 30:  # 15 seconds
+                        yield ": keepalive\n\n"
+                        last_keepalive = elapsed
+
+                # Poll every 500ms
+                await asyncio.sleep(0.5)
+
+            print(f"[SSE] Closing connection for {file_hash}")
+        except Exception as e:
+            print(f"[SSE] Error for {file_hash}: {e}")
+            import traceback
+            traceback.print_exc()
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable buffering for Nginx
+        }
+    )
 
 
 @app.get("/transactions", response_model=list[Transaction])

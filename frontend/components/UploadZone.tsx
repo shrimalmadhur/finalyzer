@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import {
   Upload,
@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 import { api } from "@/lib/api";
+import { useUploadProgress } from "@/hooks/useUploadProgress";
 
 interface UploadZoneProps {
   onUploadComplete?: () => void;
@@ -37,6 +38,39 @@ export function UploadZone({ onUploadComplete }: UploadZoneProps) {
   const [uploadState, setUploadState] = useState<UploadState>({
     status: "idle",
   });
+  const [currentFileHash, setCurrentFileHash] = useState<string | null>(null);
+
+  // Listen to real-time progress updates via SSE
+  const { progress: realtimeProgress } = useUploadProgress(currentFileHash);
+
+  // Update upload state based on real-time progress
+  useEffect(() => {
+    if (realtimeProgress) {
+      console.log("[UploadZone] Received SSE progress:", realtimeProgress);
+
+      setUploadState({
+        status: realtimeProgress.status === "complete" ? "success" :
+                realtimeProgress.status === "error" ? "error" : "uploading",
+        message: realtimeProgress.message,
+        progress: {
+          current: realtimeProgress.progress,
+          total: 100
+        },
+      });
+
+      // Call onUploadComplete when processing is done
+      if (realtimeProgress.status === "complete") {
+        console.log("[UploadZone] Processing complete, calling onUploadComplete");
+        onUploadComplete?.();
+
+        // Reset after a delay
+        setTimeout(() => {
+          setUploadState({ status: "idle" });
+          setCurrentFileHash(null);
+        }, 5000);
+      }
+    }
+  }, [realtimeProgress, onUploadComplete]);
 
   const onDrop = useCallback(
     async (acceptedFiles: File[]) => {
@@ -67,6 +101,12 @@ export function UploadZone({ onUploadComplete }: UploadZoneProps) {
             transactions_skipped: result.transactions_skipped,
             message: result.message,
           });
+
+          // If background processing, set file hash to start SSE listening
+          if (result.message.includes("background")) {
+            console.log("[UploadZone] Starting background processing, file_hash:", result.file_hash);
+            setCurrentFileHash(result.file_hash);
+          }
         } catch (error) {
           results.push({
             filename: file.name,
@@ -92,22 +132,38 @@ export function UploadZone({ onUploadComplete }: UploadZoneProps) {
       const hasErrors = failCount > 0;
       const hasSuccess = successCount > 0;
 
-      setUploadState({
-        status: hasErrors && !hasSuccess ? "error" : "success",
-        message:
-          `Processed ${successCount}/${acceptedFiles.length} files: ${totalAdded} transactions added` +
-          (totalSkipped > 0 ? `, ${totalSkipped} duplicates skipped` : "") +
-          (failCount > 0 ? `, ${failCount} failed` : ""),
-        results,
-      });
+      // Check if any file is processing in background (transactions_added = 0 but success)
+      const isBackgroundProcessing = results.some(
+        (r) => r.success && r.transactions_added === 0 && r.message.includes("background")
+      );
 
-      if (hasSuccess) {
-        onUploadComplete?.();
+      // For background processing, DON'T set final state here - let SSE updates control it
+      if (isBackgroundProcessing) {
+        // Just keep showing "uploading" status - SSE will update it
+        setUploadState({
+          status: "uploading",
+          message: "Connecting to progress stream...",
+          progress: { current: 0, total: 100 },
+        });
+      } else {
+        // For non-background (old parser), show final results
+        setUploadState({
+          status: hasErrors && !hasSuccess ? "error" : "success",
+          message: `Processed ${successCount}/${acceptedFiles.length} files: ${totalAdded} transactions added` +
+            (totalSkipped > 0 ? `, ${totalSkipped} duplicates skipped` : "") +
+            (failCount > 0 ? `, ${failCount} failed` : ""),
+          results,
+        });
+
+        if (hasSuccess) {
+          onUploadComplete?.();
+        }
+
+        // Reset after showing results
+        setTimeout(() => {
+          setUploadState({ status: "idle" });
+        }, 8000);
       }
-
-      setTimeout(() => {
-        setUploadState({ status: "idle" });
-      }, 8000);
     },
     [onUploadComplete]
   );
@@ -201,7 +257,7 @@ export function UploadZone({ onUploadComplete }: UploadZoneProps) {
                   strokeLinecap="round"
                   strokeDasharray={`${
                     ((uploadState.progress?.current || 0) /
-                      (uploadState.progress?.total || 1)) *
+                      (uploadState.progress?.total || 100)) *
                     226
                   } 226`}
                   className="transition-all duration-300"
@@ -209,30 +265,62 @@ export function UploadZone({ onUploadComplete }: UploadZoneProps) {
               </svg>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-3 max-w-md">
+              {/* Show percentage */}
               <p className="text-lg font-medium text-cream-100">
-                Processing {uploadState.progress?.current}/
-                {uploadState.progress?.total}...
+                {uploadState.progress?.current || 0}%
               </p>
-              <p className="text-sm text-midnight-400 font-mono">
-                {uploadState.currentFile}
+
+              {/* Show real-time status message */}
+              <p className="text-sm text-midnight-300">
+                {uploadState.message || "Processing..."}
               </p>
+
+              {/* Progress bar */}
+              <div className="w-full h-2 bg-ink-lighter/30 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-jade-500 transition-all duration-500 ease-out"
+                  style={{ width: `${uploadState.progress?.current || 0}%` }}
+                />
+              </div>
             </div>
           </>
         )}
 
         {uploadState.status === "success" && (
           <>
-            <div className="w-20 h-20 rounded-2xl bg-jade-500/20 flex items-center justify-center">
-              <CheckCircle className="w-10 h-10 text-jade-400" />
-            </div>
+            {uploadState.message?.includes("background") ? (
+              <>
+                <div className="w-20 h-20 rounded-2xl bg-jade-500/20 flex items-center justify-center">
+                  <Loader2 className="w-10 h-10 text-jade-400 animate-spin" />
+                </div>
 
-            <div className="space-y-2">
-              <p className="text-lg font-medium text-jade-300">
-                Upload Complete
-              </p>
-              <p className="text-sm text-midnight-300">{uploadState.message}</p>
-            </div>
+                <div className="space-y-3">
+                  <p className="text-lg font-medium text-jade-300">
+                    Processing in Background
+                  </p>
+                  <p className="text-sm text-midnight-300 max-w-md">
+                    {uploadState.message}
+                  </p>
+                  <p className="text-xs text-jade-400/70 font-medium">
+                    💡 Tip: Watch the backend console for real-time progress
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="w-20 h-20 rounded-2xl bg-jade-500/20 flex items-center justify-center">
+                  <CheckCircle className="w-10 h-10 text-jade-400" />
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-lg font-medium text-jade-300">
+                    Upload Complete
+                  </p>
+                  <p className="text-sm text-midnight-300">{uploadState.message}</p>
+                </div>
+              </>
+            )}
           </>
         )}
 

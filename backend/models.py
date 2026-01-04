@@ -4,7 +4,7 @@ from datetime import date
 from enum import Enum
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class TransactionSource(str, Enum):
@@ -13,6 +13,7 @@ class TransactionSource(str, Enum):
     CHASE_CREDIT = "chase_credit"
     AMEX = "amex"
     COINBASE = "coinbase"
+    UNKNOWN = "unknown"  # For unrecognized sources (generic parser)
 
 
 class TransactionCategory(str, Enum):
@@ -47,8 +48,7 @@ class Transaction(BaseModel):
     raw_category: str | None = None  # Original category from statement if any
     tags: list[str] = Field(default_factory=list)  # LLM-generated tags for better search
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TransactionCreate(BaseModel):
@@ -82,6 +82,7 @@ class UploadResponse(BaseModel):
     transactions_added: int
     transactions_skipped: int  # Duplicates
     message: str
+    file_hash: str  # For progress tracking via SSE
 
 
 class QueryRequest(BaseModel):
