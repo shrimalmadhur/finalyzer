@@ -90,10 +90,10 @@ class TestCreateTransaction:
         assert txn1.transaction_hash != txn2.transaction_hash
 
     def test_handles_unknown_source(self):
-        """Should handle UNKNOWN source."""
+        """Should handle UNKNOWN source enum."""
         raw_txn = RawTransaction(date=date(2024, 12, 1), description="TEST", amount=-10.0, raw_category=None)
 
-        txn = _create_transaction(raw_txn, "UNKNOWN", TEST_HASH)  # type: ignore
+        txn = _create_transaction(raw_txn, TransactionSource.UNKNOWN, TEST_HASH)
 
         assert txn.source == TransactionSource.UNKNOWN
 

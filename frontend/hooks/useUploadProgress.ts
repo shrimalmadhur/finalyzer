@@ -12,6 +12,23 @@ export interface UploadProgress {
 }
 
 /**
+ * Get the API base URL for SSE connections.
+ * Uses NEXT_PUBLIC_API_URL environment variable if set, otherwise uses relative URL
+ * which will be proxied through Next.js rewrites in development.
+ */
+function getApiBaseUrl(): string {
+  // In browser, check for env variable (must be NEXT_PUBLIC_ prefixed)
+  if (typeof window !== "undefined") {
+    const envUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (envUrl) {
+      return envUrl;
+    }
+  }
+  // Default to relative URL (works with Next.js rewrites in dev)
+  return "/api";
+}
+
+/**
  * React hook to listen to real-time upload progress via Server-Sent Events (SSE).
  *
  * @param fileHash - The hash of the uploaded file (used to track progress)
@@ -33,8 +50,10 @@ export function useUploadProgress(fileHash: string | null, enabled = true) {
     console.log(`[SSE] Connecting to progress stream for file: ${fileHash.substring(0, 8)}...`);
 
     try {
-      // Connect to SSE endpoint
-      const url = `http://localhost:8000/upload/progress/${fileHash}`;
+      // Connect to SSE endpoint using configured API URL
+      const apiBase = getApiBaseUrl();
+      const url = `${apiBase}/upload/progress/${fileHash}`;
+      console.log(`[SSE] Connecting to: ${url}`);
       eventSource = new EventSource(url);
 
       eventSource.onopen = () => {
