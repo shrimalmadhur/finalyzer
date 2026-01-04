@@ -121,6 +121,7 @@ async def process_upload(filename: str, contents: bytes) -> UploadResponse:
             except Exception as e:
                 print(f"❌ Background task error: {e}")
                 import traceback
+
                 traceback.print_exc()
 
         task.add_done_callback(handle_task_error)
@@ -303,10 +304,16 @@ async def _background_generic_parsing(filename: str, contents: bytes, file_hash:
             print(f"   Total transactions added: {added}")
             print("=" * 80 + "\n")
 
-            update_progress(file_hash, "complete", 100, f"✅ Complete! Added {added} transactions", {
-                "transactions_added": added,
-                "transactions_skipped": skipped,
-            })
+            update_progress(
+                file_hash,
+                "complete",
+                100,
+                f"✅ Complete! Added {added} transactions",
+                {
+                    "transactions_added": added,
+                    "transactions_skipped": skipped,
+                },
+            )
 
             # Clear progress after 30 seconds
             await asyncio.sleep(30)
@@ -323,6 +330,7 @@ async def _background_generic_parsing(filename: str, contents: bytes, file_hash:
         print(f"   Error: {e}")
         print("=" * 80 + "\n")
         import traceback
+
         traceback.print_exc()
 
         update_progress(file_hash, "error", 100, f"Error: {str(e)}")

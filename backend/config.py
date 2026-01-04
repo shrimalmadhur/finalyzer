@@ -3,8 +3,7 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import ConfigDict
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -33,7 +32,7 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
 
-    model_config = ConfigDict(
+    model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,  # LLM_PROVIDER and llm_provider both work
@@ -91,7 +90,9 @@ class Settings(BaseSettings):
         print("-" * 60)
 
         print(f"LLM Provider:        {self.llm_provider}")
-        print(f"OpenAI API Key:      {'✓ Set (' + self.openai_api_key[:8] + '...' + self.openai_api_key[-4:] + ')' if self.openai_api_key else '✗ Not set'}")
+        print(
+            f"OpenAI API Key:      {'✓ Set (' + self.openai_api_key[:8] + '...' + self.openai_api_key[-4:] + ')' if self.openai_api_key else '✗ Not set'}"
+        )
         print(f"OpenAI Model:        {self.openai_model}")
         print(f"Ollama Host:         {self.ollama_host}")
         print(f"Ollama Model:        {self.ollama_model}")

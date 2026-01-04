@@ -63,12 +63,8 @@ class TestAmexCsvComparison:
         )
 
         mock_transactions = [
-            RawTransaction(
-                date=date(2024, 12, 1), description="UBER TRIP", amount=-5.50, raw_category=None
-            ),
-            RawTransaction(
-                date=date(2024, 12, 2), description="STARBUCKS", amount=-4.75, raw_category=None
-            ),
+            RawTransaction(date=date(2024, 12, 1), description="UBER TRIP", amount=-5.50, raw_category=None),
+            RawTransaction(date=date(2024, 12, 2), description="STARBUCKS", amount=-4.75, raw_category=None),
             RawTransaction(
                 date=date(2024, 12, 3),
                 description="WHOLE FOODS",
@@ -77,9 +73,7 @@ class TestAmexCsvComparison:
             ),
         ]
 
-        with patch(
-            "backend.parsers.generic._analyze_document", new=AsyncMock(return_value=mock_metadata)
-        ):
+        with patch("backend.parsers.generic._analyze_document", new=AsyncMock(return_value=mock_metadata)):
             with patch(
                 "backend.parsers.generic._extract_transactions_batch",
                 new=AsyncMock(return_value=mock_transactions),
@@ -131,17 +125,11 @@ class TestAmexCsvComparison:
 
         # LLM should not return payment transactions
         mock_transactions = [
-            RawTransaction(
-                date=date(2024, 12, 1), description="UBER TRIP", amount=-5.50, raw_category=None
-            ),
-            RawTransaction(
-                date=date(2024, 12, 20), description="STARBUCKS", amount=-4.75, raw_category=None
-            ),
+            RawTransaction(date=date(2024, 12, 1), description="UBER TRIP", amount=-5.50, raw_category=None),
+            RawTransaction(date=date(2024, 12, 20), description="STARBUCKS", amount=-4.75, raw_category=None),
         ]
 
-        with patch(
-            "backend.parsers.generic._analyze_document", new=AsyncMock(return_value=mock_metadata)
-        ):
+        with patch("backend.parsers.generic._analyze_document", new=AsyncMock(return_value=mock_metadata)):
             with patch(
                 "backend.parsers.generic._extract_transactions_batch",
                 new=AsyncMock(return_value=mock_transactions),
@@ -184,9 +172,7 @@ class TestFieldComparison:
             ),
         ]
 
-        with patch(
-            "backend.parsers.generic._analyze_document", new=AsyncMock(return_value=mock_metadata)
-        ):
+        with patch("backend.parsers.generic._analyze_document", new=AsyncMock(return_value=mock_metadata)):
             with patch(
                 "backend.parsers.generic._extract_transactions_batch",
                 new=AsyncMock(return_value=mock_transactions),
@@ -226,14 +212,10 @@ class TestFieldComparison:
         )
 
         mock_transactions = [
-            RawTransaction(
-                date=date(2024, 12, 1), description="TEST", amount=-10.00, raw_category=None
-            ),
+            RawTransaction(date=date(2024, 12, 1), description="TEST", amount=-10.00, raw_category=None),
         ]
 
-        with patch(
-            "backend.parsers.generic._analyze_document", new=AsyncMock(return_value=mock_metadata)
-        ):
+        with patch("backend.parsers.generic._analyze_document", new=AsyncMock(return_value=mock_metadata)):
             with patch(
                 "backend.parsers.generic._extract_transactions_batch",
                 new=AsyncMock(return_value=mock_transactions),
@@ -300,9 +282,7 @@ class TestAccuracyMetrics:
             ),
         ]
 
-        with patch(
-            "backend.parsers.generic._analyze_document", new=AsyncMock(return_value=mock_metadata)
-        ):
+        with patch("backend.parsers.generic._analyze_document", new=AsyncMock(return_value=mock_metadata)):
             with patch(
                 "backend.parsers.generic._extract_transactions_batch",
                 new=AsyncMock(return_value=mock_transactions),
@@ -339,20 +319,12 @@ class TestAccuracyMetrics:
         )
 
         mock_transactions = [
-            RawTransaction(
-                date=date(2024, 12, 1), description="TXN 1", amount=-10.00, raw_category=None
-            ),
-            RawTransaction(
-                date=date(2024, 12, 2), description="TXN 2", amount=-20.00, raw_category=None
-            ),
-            RawTransaction(
-                date=date(2024, 12, 3), description="TXN 3", amount=-15.00, raw_category=None
-            ),
+            RawTransaction(date=date(2024, 12, 1), description="TXN 1", amount=-10.00, raw_category=None),
+            RawTransaction(date=date(2024, 12, 2), description="TXN 2", amount=-20.00, raw_category=None),
+            RawTransaction(date=date(2024, 12, 3), description="TXN 3", amount=-15.00, raw_category=None),
         ]
 
-        with patch(
-            "backend.parsers.generic._analyze_document", new=AsyncMock(return_value=mock_metadata)
-        ):
+        with patch("backend.parsers.generic._analyze_document", new=AsyncMock(return_value=mock_metadata)):
             with patch(
                 "backend.parsers.generic._extract_transactions_batch",
                 new=AsyncMock(return_value=mock_transactions),
@@ -389,9 +361,7 @@ class TestRobustness:
             document_type="monthly_statement",
         )
 
-        with patch(
-            "backend.parsers.generic._analyze_document", new=AsyncMock(return_value=mock_metadata)
-        ):
+        with patch("backend.parsers.generic._analyze_document", new=AsyncMock(return_value=mock_metadata)):
             with patch(
                 "backend.parsers.generic._extract_transactions_batch",
                 new=AsyncMock(return_value=[]),  # No transactions
@@ -426,9 +396,7 @@ class TestRobustness:
         )
 
         mock_transactions = [
-            RawTransaction(
-                date=date(2024, 12, 1), description="PURCHASE", amount=-50.00, raw_category=None
-            ),
+            RawTransaction(date=date(2024, 12, 1), description="PURCHASE", amount=-50.00, raw_category=None),
             RawTransaction(
                 date=date(2024, 12, 2),
                 description="REFUND FROM STORE",
@@ -437,9 +405,7 @@ class TestRobustness:
             ),
         ]
 
-        with patch(
-            "backend.parsers.generic._analyze_document", new=AsyncMock(return_value=mock_metadata)
-        ):
+        with patch("backend.parsers.generic._analyze_document", new=AsyncMock(return_value=mock_metadata)):
             with patch(
                 "backend.parsers.generic._extract_transactions_batch",
                 new=AsyncMock(return_value=mock_transactions),

@@ -78,9 +78,7 @@ async def parse_generic(filename: str, contents: bytes, file_hash: str) -> list[
         # Convert to Transaction objects with all required fields
         transactions = []
         for raw_txn in raw_transactions:
-            txn = _create_transaction(
-                raw_txn=raw_txn, source=metadata.source, file_hash=file_hash
-            )
+            txn = _create_transaction(raw_txn=raw_txn, source=metadata.source, file_hash=file_hash)
             transactions.append(txn)
 
         # Deduplicate within file
@@ -244,7 +242,7 @@ async def _extract_transactions_batch(
     # Split content into batches for large files
     if file_type == "csv":
         # For CSV, batch by rows (50 rows per batch to avoid LLM timeouts)
-        lines = content.split('\n')
+        lines = content.split("\n")
         header = lines[0] if lines else ""
         data_lines = lines[1:] if len(lines) > 1 else []
 
@@ -252,8 +250,8 @@ async def _extract_transactions_batch(
         batch_size = 50  # Reduced from 200 to avoid Ollama timeouts
 
         for i in range(0, len(data_lines), batch_size):
-            batch_lines = data_lines[i:i + batch_size]
-            batch_content = header + '\n' + '\n'.join(batch_lines)
+            batch_lines = data_lines[i : i + batch_size]
+            batch_content = header + "\n" + "\n".join(batch_lines)
             batches.append(batch_content)
 
         print(f"📊 Processing CSV in {len(batches)} batches ({len(data_lines)} total rows)")
@@ -267,7 +265,7 @@ async def _extract_transactions_batch(
         batch_size = 1500  # Smaller batches ensure LLM can complete JSON response within token limit
 
         for i in range(0, len(content), batch_size):
-            batches.append(content[i:i + batch_size])
+            batches.append(content[i : i + batch_size])
 
         print(f"📄 Processing PDF in {len(batches)} batches ({len(content)} total chars)")
 
@@ -342,6 +340,7 @@ Example: [{{"date": "2024-12-01", "description": "STARBUCKS", "amount": -5.50, "
 
             print(f"   📞 Calling LLM for batch {batch_num}... (timeout: 180s)")
             import time
+
             start_time = time.time()
 
             result = await llm_extract_json(wrapped_prompt, TransactionList, timeout=180.0)
@@ -355,7 +354,9 @@ Example: [{{"date": "2024-12-01", "description": "STARBUCKS", "amount": -5.50, "
             cumulative_count["total"] += len(batch_transactions)
             total_so_far = cumulative_count["total"]
 
-            print(f"✅ Batch {batch_num}/{len(batches)}: Extracted {len(batch_transactions)} transactions (total: {total_so_far})")
+            print(
+                f"✅ Batch {batch_num}/{len(batches)}: Extracted {len(batch_transactions)} transactions (total: {total_so_far})"
+            )
 
             # Update progress: batch completed (scale from 20% to 55%)
             batch_progress = 20 + int((batch_num / len(batches)) * 35)
@@ -363,7 +364,7 @@ Example: [{{"date": "2024-12-01", "description": "STARBUCKS", "amount": -5.50, "
                 file_hash,
                 "processing",
                 batch_progress,
-                f"Processed batch {batch_num}/{len(batches)} - {total_so_far} transactions extracted"
+                f"Processed batch {batch_num}/{len(batches)} - {total_so_far} transactions extracted",
             )
 
             return batch_transactions
@@ -371,6 +372,7 @@ Example: [{{"date": "2024-12-01", "description": "STARBUCKS", "amount": -5.50, "
         except Exception as e:
             print(f"❌ Batch {batch_num} extraction failed: {e}")
             import traceback
+
             traceback.print_exc()
             return []
 

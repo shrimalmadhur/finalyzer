@@ -53,9 +53,7 @@ class TestCreateTransaction:
             raw_category="Food & Dining",
         )
 
-        txn = _create_transaction(
-            raw_txn=raw_txn, source=TransactionSource.CHASE_CREDIT, file_hash=TEST_HASH
-        )
+        txn = _create_transaction(raw_txn=raw_txn, source=TransactionSource.CHASE_CREDIT, file_hash=TEST_HASH)
 
         # Required fields
         assert isinstance(txn.id, UUID)
@@ -74,9 +72,7 @@ class TestCreateTransaction:
 
     def test_transaction_hash_is_deterministic(self):
         """Same transaction should produce same hash."""
-        raw_txn = RawTransaction(
-            date=date(2024, 12, 1), description="TEST", amount=-10.0, raw_category=None
-        )
+        raw_txn = RawTransaction(date=date(2024, 12, 1), description="TEST", amount=-10.0, raw_category=None)
 
         txn1 = _create_transaction(raw_txn, TransactionSource.AMEX, TEST_HASH)
         txn2 = _create_transaction(raw_txn, TransactionSource.AMEX, TEST_HASH)
@@ -85,12 +81,8 @@ class TestCreateTransaction:
 
     def test_different_transactions_have_different_hashes(self):
         """Different transactions should have different hashes."""
-        raw_txn1 = RawTransaction(
-            date=date(2024, 12, 1), description="TEST1", amount=-10.0, raw_category=None
-        )
-        raw_txn2 = RawTransaction(
-            date=date(2024, 12, 2), description="TEST2", amount=-20.0, raw_category=None
-        )
+        raw_txn1 = RawTransaction(date=date(2024, 12, 1), description="TEST1", amount=-10.0, raw_category=None)
+        raw_txn2 = RawTransaction(date=date(2024, 12, 2), description="TEST2", amount=-20.0, raw_category=None)
 
         txn1 = _create_transaction(raw_txn1, TransactionSource.AMEX, TEST_HASH)
         txn2 = _create_transaction(raw_txn2, TransactionSource.AMEX, TEST_HASH)
@@ -99,9 +91,7 @@ class TestCreateTransaction:
 
     def test_handles_unknown_source(self):
         """Should handle UNKNOWN source."""
-        raw_txn = RawTransaction(
-            date=date(2024, 12, 1), description="TEST", amount=-10.0, raw_category=None
-        )
+        raw_txn = RawTransaction(date=date(2024, 12, 1), description="TEST", amount=-10.0, raw_category=None)
 
         txn = _create_transaction(raw_txn, "UNKNOWN", TEST_HASH)  # type: ignore
 
@@ -109,9 +99,7 @@ class TestCreateTransaction:
 
     def test_strips_description_whitespace(self):
         """Should strip whitespace from description."""
-        raw_txn = RawTransaction(
-            date=date(2024, 12, 1), description="  STARBUCKS  ", amount=-5.50, raw_category=None
-        )
+        raw_txn = RawTransaction(date=date(2024, 12, 1), description="  STARBUCKS  ", amount=-5.50, raw_category=None)
 
         txn = _create_transaction(raw_txn, TransactionSource.CHASE_CREDIT, TEST_HASH)
 
@@ -123,9 +111,7 @@ class TestDeduplicateWithinFile:
 
     def test_removes_exact_duplicates(self):
         """Should remove transactions with same hash."""
-        raw_txn = RawTransaction(
-            date=date(2024, 12, 1), description="DUP", amount=-10.0, raw_category=None
-        )
+        raw_txn = RawTransaction(date=date(2024, 12, 1), description="DUP", amount=-10.0, raw_category=None)
 
         txn1 = _create_transaction(raw_txn, TransactionSource.CHASE_CREDIT, TEST_HASH)
         txn2 = _create_transaction(raw_txn, TransactionSource.CHASE_CREDIT, TEST_HASH)
@@ -140,12 +126,8 @@ class TestDeduplicateWithinFile:
 
     def test_keeps_unique_transactions(self):
         """Should keep transactions with different hashes."""
-        raw_txn1 = RawTransaction(
-            date=date(2024, 12, 1), description="TXN1", amount=-10.0, raw_category=None
-        )
-        raw_txn2 = RawTransaction(
-            date=date(2024, 12, 2), description="TXN2", amount=-20.0, raw_category=None
-        )
+        raw_txn1 = RawTransaction(date=date(2024, 12, 1), description="TXN1", amount=-10.0, raw_category=None)
+        raw_txn2 = RawTransaction(date=date(2024, 12, 2), description="TXN2", amount=-20.0, raw_category=None)
 
         txn1 = _create_transaction(raw_txn1, TransactionSource.CHASE_CREDIT, TEST_HASH)
         txn2 = _create_transaction(raw_txn2, TransactionSource.CHASE_CREDIT, TEST_HASH)
@@ -165,9 +147,7 @@ class TestValidateTransactions:
 
     def test_validates_all_required_fields(self):
         """Should validate all required fields are present."""
-        raw_txn = RawTransaction(
-            date=date(2024, 12, 1), description="VALID", amount=-10.0, raw_category=None
-        )
+        raw_txn = RawTransaction(date=date(2024, 12, 1), description="VALID", amount=-10.0, raw_category=None)
 
         txn = _create_transaction(raw_txn, TransactionSource.CHASE_CREDIT, TEST_HASH)
 
@@ -190,9 +170,7 @@ class TestValidateTransactions:
 
     def test_fails_if_empty_description(self):
         """Should fail if description is empty."""
-        raw_txn = RawTransaction(
-            date=date(2024, 12, 1), description="X", amount=-10.0, raw_category=None
-        )
+        raw_txn = RawTransaction(date=date(2024, 12, 1), description="X", amount=-10.0, raw_category=None)
 
         txn = _create_transaction(raw_txn, TransactionSource.CHASE_CREDIT, TEST_HASH)
         txn.description = ""  # Force empty after creation
@@ -227,18 +205,14 @@ class TestParseGeneric:
         )
 
         mock_transactions = [
-            RawTransaction(
-                date=date(2024, 12, 1), description="STARBUCKS", amount=-5.50, raw_category=None
-            ),
+            RawTransaction(date=date(2024, 12, 1), description="STARBUCKS", amount=-5.50, raw_category=None),
             RawTransaction(
                 date=date(2024, 12, 2),
                 description="REFUND FROM AMAZON",
                 amount=25.00,
                 raw_category=None,
             ),
-            RawTransaction(
-                date=date(2024, 12, 3), description="UBER RIDE", amount=-15.30, raw_category=None
-            ),
+            RawTransaction(date=date(2024, 12, 3), description="UBER RIDE", amount=-15.30, raw_category=None),
         ]
 
         with patch("backend.parsers.generic._analyze_document", new=AsyncMock(return_value=mock_metadata)):
@@ -319,15 +293,9 @@ class TestParseGeneric:
 
         # LLM returns duplicates
         mock_transactions = [
-            RawTransaction(
-                date=date(2024, 12, 1), description="DUPLICATE TXN", amount=-10.00, raw_category=None
-            ),
-            RawTransaction(
-                date=date(2024, 12, 1), description="DUPLICATE TXN", amount=-10.00, raw_category=None
-            ),
-            RawTransaction(
-                date=date(2024, 12, 2), description="UNIQUE TXN", amount=-20.00, raw_category=None
-            ),
+            RawTransaction(date=date(2024, 12, 1), description="DUPLICATE TXN", amount=-10.00, raw_category=None),
+            RawTransaction(date=date(2024, 12, 1), description="DUPLICATE TXN", amount=-10.00, raw_category=None),
+            RawTransaction(date=date(2024, 12, 2), description="UNIQUE TXN", amount=-20.00, raw_category=None),
         ]
 
         with patch("backend.parsers.generic._analyze_document", new=AsyncMock(return_value=mock_metadata)):
@@ -391,9 +359,7 @@ class TestParseGeneric:
         )
 
         mock_transactions = [
-            RawTransaction(
-                date=date(2024, 12, 1), description="VALID TXN", amount=-10.00, raw_category=None
-            ),
+            RawTransaction(date=date(2024, 12, 1), description="VALID TXN", amount=-10.00, raw_category=None),
         ]
 
         with patch("backend.parsers.generic._analyze_document", new=AsyncMock(return_value=mock_metadata)):

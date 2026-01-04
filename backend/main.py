@@ -122,6 +122,7 @@ async def upload_progress(file_hash: str):
         except Exception as e:
             print(f"[SSE] Error for {file_hash}: {e}")
             import traceback
+
             traceback.print_exc()
 
     return StreamingResponse(
@@ -131,7 +132,7 @@ async def upload_progress(file_hash: str):
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",  # Disable buffering for Nginx
-        }
+        },
     )
 
 

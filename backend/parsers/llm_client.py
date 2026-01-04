@@ -36,9 +36,7 @@ def _get_api_base() -> str | None:
     return None
 
 
-async def llm_extract_json(
-    prompt: str, response_model: type[T], timeout: float = 30.0, max_retries: int = 3
-) -> T:
+async def llm_extract_json(prompt: str, response_model: type[T], timeout: float = 30.0, max_retries: int = 3) -> T:
     """
     Call LLM with a prompt and extract structured JSON output.
 
@@ -92,7 +90,7 @@ async def llm_extract_json(
             # Find first { or [
             json_start = min(
                 content.find("{") if "{" in content else len(content),
-                content.find("[") if "[" in content else len(content)
+                content.find("[") if "[" in content else len(content),
             )
             if json_start > 0 and json_start < len(content):
                 content = content[json_start:]
@@ -111,7 +109,7 @@ async def llm_extract_json(
                     logger.error("Response appears truncated (doesn't end with })")
 
                 if attempt < max_retries - 1:
-                    await asyncio.sleep(2 ** attempt)  # Exponential backoff
+                    await asyncio.sleep(2**attempt)  # Exponential backoff
                     continue
                 else:
                     raise ParsingError(f"LLM returned invalid JSON: {e}")
@@ -122,7 +120,7 @@ async def llm_extract_json(
             except ValidationError as e:
                 logger.error(f"Pydantic validation failed (attempt {attempt + 1}/{max_retries}): {e}")
                 if attempt < max_retries - 1:
-                    await asyncio.sleep(2 ** attempt)
+                    await asyncio.sleep(2**attempt)
                     continue
                 else:
                     raise ParsingError(f"LLM response validation failed: {e}")
@@ -130,7 +128,7 @@ async def llm_extract_json(
         except TimeoutError:
             logger.warning(f"LLM timeout (attempt {attempt + 1}/{max_retries})")
             if attempt < max_retries - 1:
-                wait_time = 2 ** attempt
+                wait_time = 2**attempt
                 logger.info(f"Retrying in {wait_time}s...")
                 await asyncio.sleep(wait_time)
             else:
@@ -139,7 +137,7 @@ async def llm_extract_json(
         except Exception as e:
             logger.error(f"LLM call failed (attempt {attempt + 1}/{max_retries}): {e}")
             if attempt < max_retries - 1:
-                await asyncio.sleep(2 ** attempt)
+                await asyncio.sleep(2**attempt)
             else:
                 raise ParsingError(f"LLM call failed: {e}")
 
