@@ -1,9 +1,10 @@
 """FastAPI application for Finalyzer."""
 
+import asyncio
+
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-import asyncio
 
 from backend.config import settings
 from backend.db.sqlite import db
@@ -15,7 +16,6 @@ from backend.models import (
     Transaction,
     UploadResponse,
 )
-from backend.services.upload import process_upload
 from backend.services.progress import get_progress
 from backend.services.query_engine import query_transactions
 from backend.services.upload import process_upload

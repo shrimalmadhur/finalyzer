@@ -1,7 +1,7 @@
 """Pydantic models for LLM-based document parsing."""
 
 from datetime import date
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -23,4 +23,4 @@ class RawTransaction(BaseModel):
     date: date
     description: str = Field(min_length=1)
     amount: float
-    raw_category: Optional[str] = None
+    raw_category: str | None = None

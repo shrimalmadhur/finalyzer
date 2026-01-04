@@ -80,7 +80,7 @@ class Settings(BaseSettings):
 
         # Read .env file to show what it contains
         if os.path.exists(env_file_path):
-            with open(env_file_path, 'r') as f:
+            with open(env_file_path) as f:
                 for line in f:
                     if line.startswith("LLM_PROVIDER"):
                         print(f".env file contains:  {line.strip()}")

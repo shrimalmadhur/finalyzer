@@ -35,16 +35,16 @@ async def parse_generic(filename: str, contents: bytes, file_hash: str) -> list[
         ParsingError: If parsing fails
     """
     try:
-        print(f"🔍 [parse_generic] Step 1: Validating file size...")
+        print("🔍 [parse_generic] Step 1: Validating file size...")
         # Validate file size
         validate_file_contents(contents)
 
-        print(f"🔍 [parse_generic] Step 2: Detecting file type...")
+        print("🔍 [parse_generic] Step 2: Detecting file type...")
         # Detect file type
         file_type = _detect_file_type(filename)
         print(f"🔍 [parse_generic] Detected file type: {file_type}")
 
-        print(f"🔍 [parse_generic] Step 3: Extracting content...")
+        print("🔍 [parse_generic] Step 3: Extracting content...")
         # Extract content from document
         if file_type == "pdf":
             full_text, tables = _extract_pdf_content(contents)
@@ -56,15 +56,15 @@ async def parse_generic(filename: str, contents: bytes, file_hash: str) -> list[
             content_preview = df.head(10).to_string(index=False)  # For document analysis
             extraction_content = df.to_string(index=False)  # For transaction extraction
             print(f"📊 CSV: Extracted {len(df)} rows")
-        print(f"🔍 [parse_generic] Content extracted successfully")
+        print("🔍 [parse_generic] Content extracted successfully")
 
         # Phase 1: Analyze document metadata
-        print(f"🔍 [parse_generic] Step 4: Analyzing document metadata...")
+        print("🔍 [parse_generic] Step 4: Analyzing document metadata...")
         metadata = await _analyze_document(content_preview)
         print(f"🔍 [parse_generic] Metadata: source={metadata.source}, year={metadata.statement_year}")
 
         # Phase 2: Extract transactions in batches
-        print(f"🔍 [parse_generic] Step 5: Extracting transactions in batches...")
+        print("🔍 [parse_generic] Step 5: Extracting transactions in batches...")
         raw_transactions = await _extract_transactions_batch(
             content=extraction_content, metadata=metadata, file_type=file_type, file_hash=file_hash
         )
@@ -256,7 +256,7 @@ async def _extract_transactions_batch(
             batches.append(batch_content)
 
         print(f"📊 Processing CSV in {len(batches)} batches ({len(data_lines)} total rows)")
-        print(f"   ℹ️  Note: LLM will filter out payments and invalid transactions")
+        print("   ℹ️  Note: LLM will filter out payments and invalid transactions")
 
         # Update progress with batch count
         update_progress(file_hash, "processing", 20, f"Processing {len(batches)} batches of transactions...")
@@ -274,7 +274,6 @@ async def _extract_transactions_batch(
         update_progress(file_hash, "processing", 20, f"Processing {len(batches)} batches of transactions...")
 
     # Process batches in parallel for speed
-    import asyncio
     from pydantic import BaseModel
 
     class TransactionList(BaseModel):
@@ -385,12 +384,12 @@ Example: [{{"date": "2024-12-01", "description": "STARBUCKS", "amount": -5.50, "
         async with semaphore:
             return await task
 
-    print(f"🔍 [_extract_transactions_batch] Starting parallel processing (max 3 concurrent)...")
+    print("🔍 [_extract_transactions_batch] Starting parallel processing (max 3 concurrent)...")
     results = await asyncio.gather(*[process_with_semaphore(task) for task in tasks])
-    print(f"🔍 [_extract_transactions_batch] All batches completed!")
+    print("🔍 [_extract_transactions_batch] All batches completed!")
 
     # Flatten results
-    print(f"🔍 [_extract_transactions_batch] Flattening results...")
+    print("🔍 [_extract_transactions_batch] Flattening results...")
     all_transactions = []
     for batch_transactions in results:
         all_transactions.extend(batch_transactions)

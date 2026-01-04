@@ -3,7 +3,7 @@
 import asyncio
 import json
 import logging
-from typing import Optional, Type, TypeVar
+from typing import TypeVar
 
 from litellm import acompletion
 from pydantic import BaseModel, ValidationError
@@ -29,7 +29,7 @@ def _get_model_name() -> str:
         return f"ollama/{settings.ollama_model}"
 
 
-def _get_api_base() -> Optional[str]:
+def _get_api_base() -> str | None:
     """Get the API base URL for Ollama."""
     if settings.llm_provider == "ollama":
         return settings.ollama_host
@@ -37,7 +37,7 @@ def _get_api_base() -> Optional[str]:
 
 
 async def llm_extract_json(
-    prompt: str, response_model: Type[T], timeout: float = 30.0, max_retries: int = 3
+    prompt: str, response_model: type[T], timeout: float = 30.0, max_retries: int = 3
 ) -> T:
     """
     Call LLM with a prompt and extract structured JSON output.
