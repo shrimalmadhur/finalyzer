@@ -11,7 +11,6 @@ from backend.parsers.document_types import DocumentMetadata, RawTransaction
 from backend.parsers.generic import parse_generic
 from backend.services.dedup import compute_file_hash
 
-
 # Test constants
 TEST_HASH = "a" * 64  # Valid SHA256 hash (64 hex chars)
 
