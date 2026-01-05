@@ -49,11 +49,12 @@ OPENAI_API_KEY=sk-...
 
 ## Supported Formats
 
-| Source | Formats |
-|--------|---------|
-| Chase | PDF, CSV, Report PDF |
-| Amex | CSV, Year-End PDF |
-| Coinbase | CSV, PDF |
+The AI-powered generic parser automatically detects and processes financial statements from any institution in **PDF** or **CSV** format. No need to specify the source - it intelligently handles:
+
+- Credit card statements (Chase, Amex, Discover, etc.)
+- Bank statements
+- Cryptocurrency exchange statements (Coinbase, etc.)
+- Any other financial transaction records
 
 ## Commands
 

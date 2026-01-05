@@ -129,16 +129,9 @@ export default function HomePage() {
 
           {/* Supported formats */}
           <div className="mt-6 space-y-3">
-            <p className="text-sm text-midnight-400">Supported formats:</p>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="tag">Chase PDF</span>
-              <span className="tag">Chase CSV</span>
-              <span className="tag">Chase Report PDF</span>
-              <span className="tag">Amex CSV</span>
-              <span className="tag">Amex Year-End PDF</span>
-              <span className="tag">Coinbase CSV</span>
-              <span className="tag">Coinbase PDF</span>
-            </div>
+            <p className="text-sm text-midnight-400">
+              AI-powered parser supports any credit card or bank statement in PDF or CSV format
+            </p>
           </div>
         </div>
       </section>
