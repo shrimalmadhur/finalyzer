@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   DollarSign,
   CreditCard,
@@ -96,11 +96,7 @@ export default function DashboardPage() {
     null
   );
 
-  useEffect(() => {
-    loadDashboardData();
-  }, [selectedYear]);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     setLoading(true);
     try {
       const [
@@ -133,7 +129,11 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedYear]);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
 
   const tabs = [
     { id: "overview" as const, label: "Overview", icon: BarChart3 },

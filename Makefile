@@ -60,7 +60,8 @@ dev:
 # Start backend only
 backend:
 	@echo "Starting backend server..."
-	uv run uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+	@echo "Note: Using settings from .env file (ignoring shell environment variables)"
+	env -u LLM_PROVIDER uv run uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 
 # Start frontend only
 frontend:

@@ -23,6 +23,7 @@ export interface UploadResponse {
   transactions_added: number;
   transactions_skipped: number;
   message: string;
+  file_hash: string; // For progress tracking via SSE
 }
 
 export interface UploadedFile {

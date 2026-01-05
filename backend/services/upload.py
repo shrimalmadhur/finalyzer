@@ -1,8 +1,10 @@
 """File upload processing service."""
 
 import asyncio
+import logging
 from datetime import datetime
 
+from backend.config import settings
 from backend.db.sqlite import db
 from backend.db.vector import vector_store
 from backend.models import (
@@ -12,12 +14,19 @@ from backend.models import (
     UploadResponse,
 )
 from backend.parsers.amex_csv import parse_amex_csv
-from backend.parsers.amex_year_end_pdf import is_amex_year_end_summary, parse_amex_year_end_pdf
+from backend.parsers.amex_year_end_pdf import (
+    is_amex_year_end_summary,
+    parse_amex_year_end_pdf,
+)
 from backend.parsers.chase_csv import parse_chase_csv
 from backend.parsers.chase_pdf import parse_chase_pdf
-from backend.parsers.chase_report_pdf import is_chase_spending_report, parse_chase_report_pdf
+from backend.parsers.chase_report_pdf import (
+    is_chase_spending_report,
+    parse_chase_report_pdf,
+)
 from backend.parsers.coinbase_csv import parse_coinbase_csv
 from backend.parsers.coinbase_pdf import is_coinbase_pdf, parse_coinbase_pdf
+from backend.parsers.generic import parse_generic
 from backend.services.categorizer import (
     categorize_transactions_fast,
     complete_processing_job,
@@ -25,7 +34,10 @@ from backend.services.categorizer import (
     start_processing_job,
 )
 from backend.services.dedup import compute_file_hash
+from backend.services.progress import clear_progress, update_progress
 from backend.services.tagger import schedule_llm_tagging, tag_transactions_fast
+
+logger = logging.getLogger(__name__)
 
 
 def detect_source(filename: str, contents: bytes) -> TransactionSource:
@@ -92,40 +104,79 @@ async def process_upload(filename: str, contents: bytes) -> UploadResponse:
             transactions_added=0,
             transactions_skipped=0,
             message="This file has already been uploaded",
+            file_hash=file_hash,
         )
 
-    # Detect source type
-    source = detect_source(filename, contents)
-
-    # Parse transactions based on source and file type
+    # Parse transactions using generic parser or format-specific parsers
     filename_lower = filename.lower()
 
-    if source == TransactionSource.CHASE_CREDIT:
-        if filename_lower.endswith(".csv"):
-            transactions = parse_chase_csv(contents, file_hash)
-        elif filename_lower.endswith(".pdf"):
-            # Check if it's a Spending Report PDF vs regular statement
-            if is_chase_spending_report(contents):
-                print("Detected Chase Spending Report PDF")
-                transactions = parse_chase_report_pdf(contents, file_hash)
+    if settings.use_generic_parser:
+        # NEW: Use LLM-based generic parser (works for any PDF or CSV)
+        logger.info(f"Using generic LLM parser for {filename}")
+
+        # Start background processing immediately - don't block the request
+        task = asyncio.create_task(_background_generic_parsing(filename, contents, file_hash))
+
+        # Add error handler to catch any exceptions and update progress
+        def handle_task_error(task):
+            try:
+                task.result()
+            except Exception as e:
+                error_msg = f"Processing failed: {str(e)}"
+                logger.error(f"Background task error for {filename}: {e}", exc_info=True)
+                # Update progress with error status so frontend knows about the failure
+                update_progress(
+                    file_hash,
+                    "error",
+                    0,
+                    error_msg,
+                    {"error": str(e), "filename": filename},
+                )
+
+        task.add_done_callback(handle_task_error)
+
+        # Return immediately with processing status
+        logger.info(f"File uploaded: {filename} - Processing in background...")
+        logger.debug("This may take 1-2 minutes for large files.")
+
+        return UploadResponse(
+            filename=filename,
+            source=TransactionSource.UNKNOWN,  # Will be determined by LLM
+            transactions_added=0,
+            transactions_skipped=0,
+            message=f"⏳ Processing {filename} in background... This may take 1-2 minutes for large files. Transactions will appear as processing completes. Refresh the page to see new transactions.",
+            file_hash=file_hash,
+        )
+    else:
+        # OLD: Use format-specific parsers (backward compatible)
+        source = detect_source(filename, contents)
+
+        if source == TransactionSource.CHASE_CREDIT:
+            if filename_lower.endswith(".csv"):
+                transactions = parse_chase_csv(contents, file_hash)
+            elif filename_lower.endswith(".pdf"):
+                # Check if it's a Spending Report PDF vs regular statement
+                if is_chase_spending_report(contents):
+                    logger.info("Detected Chase Spending Report PDF")
+                    transactions = parse_chase_report_pdf(contents, file_hash)
+                else:
+                    transactions = parse_chase_pdf(contents, file_hash)
             else:
                 transactions = parse_chase_pdf(contents, file_hash)
+        elif source == TransactionSource.AMEX:
+            if filename_lower.endswith(".pdf"):
+                logger.info("Detected Amex Year-End Summary PDF")
+                transactions = parse_amex_year_end_pdf(contents, file_hash)
+            else:
+                transactions = parse_amex_csv(contents, file_hash)
+        elif source == TransactionSource.COINBASE:
+            if filename_lower.endswith(".pdf"):
+                logger.info("Detected Coinbase Card PDF statement")
+                transactions = parse_coinbase_pdf(contents, file_hash)
+            else:
+                transactions = parse_coinbase_csv(contents, file_hash)
         else:
-            transactions = parse_chase_pdf(contents, file_hash)
-    elif source == TransactionSource.AMEX:
-        if filename_lower.endswith(".pdf"):
-            print("Detected Amex Year-End Summary PDF")
-            transactions = parse_amex_year_end_pdf(contents, file_hash)
-        else:
-            transactions = parse_amex_csv(contents, file_hash)
-    elif source == TransactionSource.COINBASE:
-        if filename_lower.endswith(".pdf"):
-            print("Detected Coinbase Card PDF statement")
-            transactions = parse_coinbase_pdf(contents, file_hash)
-        else:
-            transactions = parse_coinbase_csv(contents, file_hash)
-    else:
-        raise ValueError(f"Unsupported source: {source}")
+            raise ValueError(f"Unsupported source: {source}")
 
     if not transactions:
         return UploadResponse(
@@ -134,9 +185,10 @@ async def process_upload(filename: str, contents: bytes) -> UploadResponse:
             transactions_added=0,
             transactions_skipped=0,
             message="No transactions found in file",
+            file_hash=file_hash,
         )
 
-    print(f"Parsed {len(transactions)} transactions from {filename}")
+    logger.info(f"Parsed {len(transactions)} transactions from {filename}")
 
     # Fast categorization: use raw_category from source, no LLM yet
     categorize_transactions_fast(transactions)
@@ -147,7 +199,7 @@ async def process_upload(filename: str, contents: bytes) -> UploadResponse:
     # Add transactions to database immediately (don't wait for LLM)
     added, skipped = db.add_transactions_batch(transactions)
 
-    print(f"Added {added} transactions, skipped {skipped} duplicates")
+    logger.info(f"Added {added} transactions, skipped {skipped} duplicates")
 
     # Count how many still need LLM processing
     uncategorized = sum(1 for t in transactions if not t.category)
@@ -183,7 +235,106 @@ async def process_upload(filename: str, contents: bytes) -> UploadResponse:
         transactions_added=added,
         transactions_skipped=skipped,
         message=message,
+        file_hash=file_hash,
     )
+
+
+async def _background_generic_parsing(filename: str, contents: bytes, file_hash: str) -> None:
+    """Background task to parse file with generic LLM parser and add transactions to database."""
+    try:
+        logger.info(f"Background processing started: {filename}")
+        update_progress(file_hash, "processing", 0, f"Starting to parse {filename}...")
+
+        # Parse with generic LLM parser (this may take 1-2 minutes for large files)
+        logger.info(f"Parsing {filename} with LLM-based generic parser...")
+        update_progress(file_hash, "processing", 10, "Analyzing document with LLM...")
+
+        transactions = await parse_generic(filename, contents, file_hash)
+
+        if not transactions:
+            logger.warning(f"No transactions extracted from {filename}")
+            update_progress(file_hash, "error", 100, "No transactions found")
+            complete_processing_job(file_hash, error="No transactions found")
+            return
+
+        # Infer source from first transaction
+        source = transactions[0].source
+        logger.info(f"Extracted {len(transactions)} transactions from {source.value}")
+        update_progress(file_hash, "processing", 60, f"Extracted {len(transactions)} transactions")
+
+        # Fast categorization: use raw_category from source, no LLM yet
+        logger.debug("Running fast categorization...")
+        update_progress(file_hash, "processing", 70, "Categorizing transactions...")
+        categorize_transactions_fast(transactions)
+
+        # Fast tagging: use known merchant patterns, no LLM yet
+        logger.debug("Running fast tagging...")
+        update_progress(file_hash, "processing", 75, "Tagging merchants...")
+        tag_transactions_fast(transactions)
+
+        # Add transactions to database
+        logger.info(f"Adding {len(transactions)} transactions to database...")
+        update_progress(file_hash, "processing", 80, "Saving to database...")
+        added, skipped = db.add_transactions_batch(transactions)
+        logger.info(f"Database updated: {added} added, {skipped} duplicates skipped")
+
+        # Record the uploaded file
+        if added > 0:
+            uploaded_file = UploadedFile(
+                filename=filename,
+                file_hash=file_hash,
+                source=source,
+                transaction_count=added,
+                uploaded_at=datetime.now().isoformat(),
+            )
+            db.add_uploaded_file(uploaded_file)
+            logger.debug("File record saved to database")
+
+            # Count how many still need LLM processing
+            uncategorized = sum(1 for t in transactions if not t.category)
+            untagged = sum(1 for t in transactions if not t.tags)
+            needs_processing = uncategorized + untagged
+
+            # Schedule background LLM categorization and tagging
+            if needs_processing > 0:
+                logger.info(f"Scheduling LLM processing for {needs_processing} items...")
+                start_processing_job(file_hash, filename, needs_processing)
+
+            # Continue with categorization, tagging, and vector store
+            logger.debug("Starting background LLM categorization & tagging...")
+            update_progress(file_hash, "processing", 90, "Running AI categorization...")
+            await _background_processing(transactions, file_hash)
+
+            logger.info(f"Background processing complete: {filename} - {added} transactions added")
+
+            update_progress(
+                file_hash,
+                "complete",
+                100,
+                f"Complete! Added {added} transactions",
+                {
+                    "transactions_added": added,
+                    "transactions_skipped": skipped,
+                },
+            )
+
+            # Clear progress after 30 seconds
+            await asyncio.sleep(30)
+            clear_progress(file_hash)
+        else:
+            logger.info(f"All transactions from {filename} were duplicates - nothing added")
+            update_progress(file_hash, "complete", 100, "All transactions were duplicates")
+            await asyncio.sleep(30)
+            clear_progress(file_hash)
+
+    except Exception as e:
+        logger.error(f"Background processing failed for {filename}: {e}", exc_info=True)
+        update_progress(file_hash, "error", 100, f"Error: {str(e)}")
+        complete_processing_job(file_hash, error=str(e))
+
+        # Clear progress after 30 seconds
+        await asyncio.sleep(30)
+        clear_progress(file_hash)
 
 
 async def _background_processing(transactions: list[Transaction], file_hash: str) -> None:
@@ -193,30 +344,30 @@ async def _background_processing(transactions: list[Transaction], file_hash: str
         uncategorized_ids = [str(t.id) for t in transactions if not t.category]
 
         if uncategorized_ids:
-            print(f"Background: Starting LLM categorization for {len(uncategorized_ids)} transactions...")
+            logger.info(f"Starting LLM categorization for {len(uncategorized_ids)} transactions...")
             await schedule_llm_categorization(uncategorized_ids, file_hash)
-            print("Background: LLM categorization complete")
+            logger.debug("LLM categorization complete")
 
         # Get IDs of transactions that need LLM tagging
         untagged_ids = [str(t.id) for t in transactions if not t.tags]
 
         if untagged_ids:
-            print(f"Background: Starting LLM tagging for {len(untagged_ids)} transactions...")
+            logger.info(f"Starting LLM tagging for {len(untagged_ids)} transactions...")
             await schedule_llm_tagging(untagged_ids, file_hash)
-            print("Background: LLM tagging complete")
+            logger.debug("LLM tagging complete")
 
         # Refresh transactions from DB to get updated tags for vector store
         all_ids = [str(t.id) for t in transactions]
         updated_transactions = db.get_transactions_by_ids(all_ids)
 
         # Add to vector store with tags
-        print(f"Background: Adding {len(updated_transactions)} transactions to vector store...")
+        logger.info(f"Adding {len(updated_transactions)} transactions to vector store...")
         await vector_store.add_transactions_batch(updated_transactions)
-        print("Background: Vector store update complete")
+        logger.debug("Vector store update complete")
 
         # Mark processing as complete
         complete_processing_job(file_hash)
 
     except Exception as e:
-        print(f"Background processing error: {e}")
+        logger.error(f"Background processing error: {e}", exc_info=True)
         complete_processing_job(file_hash, error=str(e))
